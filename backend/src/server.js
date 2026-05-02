@@ -1,8 +1,13 @@
 const app = require('./app');
+const connectDB = require('./config/db');
+
+dotenv = require('dotenv');
+dotenv.config();
+
+connectDB();
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-    console.log(`🚀 Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-    console.log(`📄 Swagger docs available at http://localhost:${PORT}/api/docs`);
+  console.log(`Server running on port ${PORT}`);
 });

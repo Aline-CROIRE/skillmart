@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const dotenv = require('dotenv');
 const swaggerUi = require('swagger-ui-express');
 const specs = require('./config/swagger');
+const errorHandler = require('./middlewares/errorHandler');
 
 dotenv.config();
 
@@ -18,26 +19,6 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs));
 
-/**
- * @openapi
- * /health:
- *   get:
- *     summary: Check API Health
- *     responses:
- *       200:
- *         description: API is healthy
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                 message:
- *                   type: string
- *                 timestamp:
- *                   type: string
- */
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'UP',
@@ -45,5 +26,7 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+app.use(errorHandler);
 
 module.exports = app;
