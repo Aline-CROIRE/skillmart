@@ -1,45 +1,48 @@
-const Anthropic = require('@anthropic-ai/sdk');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-const anthropic = new Anthropic({
-  apiKey: process.env.CLAUDE_API_KEY,
-});
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-const analyzeWithClaude = async (projectData) => {
-  if (!process.env.CLAUDE_API_KEY || process.env.CLAUDE_API_KEY === 'your_key_here') {
+const analyzeWithGemini = async (projectData) => {
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_key_here') {
     return {
-      score: 70,
-      summary: "Demo mode: Please configure CLAUDE_API_KEY for real analysis.",
-      securityFindings: ["No API key provided"],
-      qualityMetrics: { codeQuality: 5, documentation: 5 }
+      score: 50,
+      summary: "Demo mode: GEMINI_API_KEY not found.",
+      securityFindings: ["No analysis performed"],
+      qualityMetrics: { codeQuality: 0, documentation: 0 }
     };
   }
 
-  const prompt = `Analyze this project submission:
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+  const prompt = `Analyze this project and return ONLY a valid JSON object.
     Title: ${projectData.title}
     Description: ${projectData.description}
     
-    Provide a JSON response with:
-    1. score (0-100)
-    2. summary (string)
-    3. securityFindings (array of strings)
-    4. qualityMetrics (object with codeQuality and documentation as numbers 1-10)`;
+    JSON Format:
+    {
+      "score": number (0-100),
+      "summary": "string",
+      "securityFindings": ["string"],
+      "qualityMetrics": { "codeQuality": number (1-10), "documentation": number (1-10) }
+    }`;
 
-  const msg = await anthropic.messages.create({
-    model: "claude-3-sonnet-20240229",
-    max_tokens: 1000,
-    messages: [{ role: "user", content: prompt }],
-  });
-
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
+  
   try {
-    return JSON.parse(msg.content[0].text);
+    // Clean potential markdown code blocks from AI response
+    const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanedText);
   } catch (e) {
+    console.error("AI Parsing Error:", text);
     return {
-      score: 50,
-      summary: "AI analysis completed but returned invalid format.",
+      score: 0,
+      summary: "AI response format error.",
       securityFindings: [],
       qualityMetrics: { codeQuality: 0, documentation: 0 }
     };
   }
 };
 
-module.exports = { analyzeWithClaude };
+module.exports = { analyzeWithClaude: analyzeWithGemini }; 

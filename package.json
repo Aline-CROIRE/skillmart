@@ -1,0 +1,9 @@
+{
+  "name": "skillmart-monorepo",
+  "version": "1.0.0",
+  "scripts": {
+    "start-backend": "cd backend && npm start",
+    "start-worker": "cd worker && npm start",
+    "install-all": "npm install --prefix backend && npm install --prefix worker"
+  }
+}
