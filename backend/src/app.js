@@ -11,7 +11,7 @@ const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const marketRoutes = require('./routes/marketRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
-
+const adminRoutes = require('./routes/adminRoutes');
 const app = express();
 
 app.use(helmet({ crossOriginResourcePolicy: false }));
@@ -27,6 +27,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/admin', adminRoutes);
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'UP', timestamp: new Date().toISOString() });
 });
