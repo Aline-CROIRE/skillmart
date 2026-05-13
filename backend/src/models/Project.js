@@ -1,39 +1,26 @@
 const mongoose = require('mongoose');
 
-const projectSchema = new mongoose.Schema(
-  {
-    title: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    description: {
-      type: String,
-      required: true,
-    },
-    category: {
-      type: String,
-      required: true,
-      enum: ['Web', 'Mobile', 'AI', 'Design', 'Other'],
-    },
-    fileUrl: {
-      type: String,
-      required: false,
-    },
-    status: {
-      type: String,
-      required: true,
-      enum: ['pending', 'analyzing', 'approved', 'rejected'],
-      default: 'pending',
-    },
-    sellerId: {
-      type: String,
-      required: true,
-    },
+const projectSchema = new mongoose.Schema({
+  title: { type: String, required: true },
+  description: { type: String, required: true },
+  price: { type: Number, default: 0 },
+  category: { 
+    type: String, 
+    required: true,
+    enum: ['Academic', 'Business', 'Creative', 'Technology', 'Professional', 'Other']
   },
-  {
-    timestamps: true,
+  fileUrl: { type: String, required: true },
+  sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  status: { 
+    type: String, 
+    enum: ['pending', 'analyzing', 'approved', 'rejected'], 
+    default: 'pending' 
+  },
+  stats: {
+    views: { type: Number, default: 0 },
+    downloads: { type: Number, default: 0 },
+    sales: { type: Number, default: 0 }
   }
-);
+}, { timestamps: true });
 
 module.exports = mongoose.model('Project', projectSchema);
