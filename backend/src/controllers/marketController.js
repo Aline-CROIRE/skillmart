@@ -24,3 +24,18 @@ exports.purchaseProject = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getAllProjects = async (req, res) => {
+  const { category, search } = req.query;
+  let filter = { status: 'approved' }; // Only show approved projects
+  if (category) filter.category = category;
+  if (search) filter.title = { $regex: search, $options: 'i' };
+  
+  const projects = await Project.find(filter);
+  res.json(projects);
+};
+
+exports.getMyLibrary = async (req, res) => {
+  const user = await User.findById(req.user._id).populate('purchasedProjects');
+  res.json(user.purchasedProjects);
+};
