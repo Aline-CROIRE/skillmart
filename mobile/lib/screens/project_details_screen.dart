@@ -137,16 +137,17 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
       decoration: BoxDecoration(
         color: colorScheme.primary.withOpacity(0.05), 
         borderRadius: BorderRadius.circular(20),
-        image: widget.project.thumbnailUrl.isNotEmpty 
-          ? DecorationImage(
-              image: NetworkImage("https://skillmart-api.onrender.com${widget.project.thumbnailUrl}"),
-              fit: BoxFit.cover
-            )
-          : null
       ),
-      child: widget.project.thumbnailUrl.isEmpty 
-        ? Icon(Icons.folder_shared, size: 60, color: colorScheme.primary)
-        : null,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: widget.project.thumbnailUrl.isNotEmpty
+          ? Image.network(
+              widget.project.thumbnailUrl.startsWith('http') ? widget.project.thumbnailUrl : "https://skillmart-api.onrender.com${widget.project.thumbnailUrl}",
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Center(child: Icon(Icons.broken_image_outlined, color: colorScheme.primary)),
+            )
+          : Icon(Icons.folder_shared, size: 60, color: colorScheme.primary),
+      ),
     );
   }
 

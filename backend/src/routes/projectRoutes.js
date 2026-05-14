@@ -8,10 +8,10 @@ const {
   watchProject
 } = require('../controllers/projectController');
 const { protect } = require('../middlewares/authMiddleware');
-const upload = require('../config/multer');
+const cloudinaryUpload = require('../config/cloudinary');
 
-router.post('/upload', upload.single('file'), (req, res) => {
-  res.status(200).json({ fileUrl: `/uploads/${req.file.filename}` });
+router.post('/upload', cloudinaryUpload.single('file'), (req, res) => {
+  res.status(200).json({ fileUrl: req.file.path });
 });
 
 router.get('/', getAllProjects);

@@ -143,4 +143,21 @@ class ApiService {
       return res.statusCode == 200;
     } catch (e) { return false; }
   }
+
+  Future<Map<String, dynamic>?> updateAvatar(PlatformFile file, String token) async {
+    try {
+      var request = http.MultipartRequest('PATCH', Uri.parse('$baseUrl/auth/profile'));
+      request.headers.addAll(_headers(token));
+      
+      if (kIsWeb && file.bytes != null) {
+        request.files.add(http.MultipartFile.fromBytes('avatar', file.bytes!, filename: file.name, contentType: MediaType('image', 'jpeg')));
+      } else {
+        request.files.add(await http.MultipartFile.fromPath('avatar', file.path!));
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+      return response.statusCode == 200 ? jsonDecode(response.body) : null;
+    } catch (e) { return null; }
+  }
 }

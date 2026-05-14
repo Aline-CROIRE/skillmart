@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:file_picker/file_picker.dart';
 import '../services/api_service.dart';
 import '../main.dart';
 import '../theme.dart';
@@ -15,8 +16,10 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String _name = "User";
   String _email = "";
+  String _avatarUrl = "";
   int _balance = 0;
   bool _isLoading = true;
+  bool _isUploading = false;
 
   @override
   void initState() { super.initState(); _load(); }
@@ -30,12 +33,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _name = profile['name'] ?? "Member";
           _email = profile['email'] ?? "";
+          _avatarUrl = profile['avatar'] ?? "";
           _balance = profile['walletBalance'] ?? 0;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result == null) return;
+
+    setState(() => _isUploading = true);
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
+    
+    final response = await ApiService().updateAvatar(result.files.first, token);
+    if (mounted) {
+      setState(() {
+        _isUploading = false;
+        if (response != null) {
+          _avatarUrl = response['avatar'] ?? "";
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile picture updated!"), backgroundColor: Colors.green));
+        }
+      });
     }
   }
 
@@ -92,10 +116,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildProfileHeader(ColorScheme colorScheme) {
     return Column(
       children: [
-        CircleAvatar(
-          radius: 50,
-          backgroundColor: colorScheme.primary.withOpacity(0.1),
-          child: Icon(Icons.person, size: 50, color: colorScheme.primary),
+        Stack(
+          children: [
+            CircleAvatar(
+              radius: 55,
+              backgroundColor: colorScheme.primary.withOpacity(0.1),
+              backgroundImage: _avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null,
+              child: _avatarUrl.isEmpty 
+                ? Icon(Icons.person, size: 55, color: colorScheme.primary)
+                : null,
+            ),
+            if (_isUploading)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(color: Colors.black26, shape: BoxShape.circle),
+                  child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+                ),
+              ),
+            Positioned(
+              bottom: 0, right: 0,
+              child: InkWell(
+                onTap: _isUploading ? null : _pickAndUploadAvatar,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                  child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 15),
         Text(_name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),

@@ -41,3 +41,23 @@ exports.depositBalance = async (req, res) => {
     res.json(user);
   } catch (error) { res.status(500).json({ message: error.message }); }
 };
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const { name, bio } = req.body;
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (bio) updateData.bio = bio;
+    if (req.file) updateData.avatar = req.file.path; // Cloudinary URL
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $set: updateData },
+      { new: true }
+    ).select('-password');
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

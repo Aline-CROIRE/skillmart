@@ -88,21 +88,26 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
             Expanded(
               child: Stack(
                 children: [
-                  Container(
-                    width: double.infinity, 
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary.withOpacity(0.05), 
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                      image: p.thumbnailUrl.isNotEmpty 
-                        ? DecorationImage(
-                            image: NetworkImage("https://skillmart-api.onrender.com${p.thumbnailUrl}"),
-                            fit: BoxFit.cover
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    child: Container(
+                      color: colorScheme.primary.withOpacity(0.05),
+                      width: double.infinity,
+                      height: double.infinity,
+                      child: p.thumbnailUrl.isNotEmpty 
+                        ? Image.network(
+                            p.thumbnailUrl.startsWith('http') ? p.thumbnailUrl : "https://skillmart-api.onrender.com${p.thumbnailUrl}",
+                            fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+                            },
+                            errorBuilder: (context, error, stackTrace) => Center(
+                              child: Icon(Icons.broken_image_outlined, color: colorScheme.primary.withOpacity(0.3)),
+                            ),
                           )
-                        : null
-                    ), 
-                    child: p.thumbnailUrl.isEmpty 
-                      ? Icon(Icons.auto_stories, color: colorScheme.primary)
-                      : null,
+                        : Icon(Icons.auto_stories, color: colorScheme.primary),
+                    ),
                   ),
                   if (isPending)
                     Positioned(
