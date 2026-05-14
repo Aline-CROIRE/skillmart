@@ -1,4 +1,5 @@
 const Project = require('../models/Project');
+const { sendApprovalEmail } = require('../services/emailService');
 
 // 1. Get all projects waiting for an expert
 exports.getPendingQueue = async (req, res) => {
@@ -37,7 +38,19 @@ exports.submitDecision = async (req, res) => {
       req.params.id,
       updateData,
       { new: true }
-    );
+    ).populate('watchers', 'email');
+
+    if (status === 'approved' && project.watchers && project.watchers.length > 0) {
+      for (const user of project.watchers) {
+        if (user.email) {
+          sendApprovalEmail(user.email, project.title);
+        }
+      }
+      // Clear watchers after notifying
+      project.watchers = [];
+      await project.save();
+    }
+
     res.json({ message: "Evaluation recorded", project });
   } catch (error) {
     res.status(500).json({ message: error.message });

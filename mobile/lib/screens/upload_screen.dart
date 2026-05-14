@@ -41,8 +41,8 @@ class _UploadScreenState extends State<UploadScreen> {
   PlatformFile? _pitchVideo;
 
   // Shareholders
-  bool _isShareholderSeeking = false;
   late TextEditingController _maxShareholders;
+  late TextEditingController _totalShares;
   late TextEditingController _minShare;
   late TextEditingController _shareValue;
 
@@ -60,8 +60,10 @@ class _UploadScreenState extends State<UploadScreen> {
     _linkedinUrl = TextEditingController(text: widget.existingProject?.linkedinUrl ?? "");
 
     _projectType = widget.existingProject?.projectType ?? "Business Idea";
-    _isShareholderSeeking = widget.existingProject?.isShareholderSeeking ?? false;
+    if (_projectType == "Investment Seeking") _projectType = "Shareholder Seeking"; // Compatibility
+
     _maxShareholders = TextEditingController(text: widget.existingProject?.maxShareholders.toString() ?? "0");
+    _totalShares = TextEditingController(text: widget.existingProject?.totalSharesAvailable.toString() ?? "0");
     _minShare = TextEditingController(text: widget.existingProject?.minShare.toString() ?? "0");
     _shareValue = TextEditingController(text: widget.existingProject?.shareValue.toString() ?? "0");
   }
@@ -109,8 +111,9 @@ class _UploadScreenState extends State<UploadScreen> {
       'rraTaxHistoryUrl': histUrl,
       'rraClearanceUrl': clearUrl,
       'pitchVideoUrl': videoUrl,
-      'isShareholderSeeking': _isShareholderSeeking,
+      'isShareholderSeeking': _projectType == "Shareholder Seeking",
       'maxShareholders': int.tryParse(_maxShareholders.text) ?? 0,
+      'totalSharesAvailable': int.tryParse(_totalShares.text) ?? 0,
       'minShare': int.tryParse(_minShare.text) ?? 0,
       'shareValue': int.tryParse(_shareValue.text) ?? 0,
     };
@@ -132,6 +135,8 @@ class _UploadScreenState extends State<UploadScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    int totalSteps = _projectType == "Shareholder Seeking" ? 4 : 3;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: const Text("Create New Project")),
@@ -139,7 +144,7 @@ class _UploadScreenState extends State<UploadScreen> {
         ? const Center(child: CircularProgressIndicator())
         : Column(
             children: [
-              _buildStepIndicator(colorScheme),
+              _buildStepIndicator(colorScheme, totalSteps),
               Expanded(
                 child: AnimatedSwitcher(
                   duration: 400.ms,
@@ -153,17 +158,17 @@ class _UploadScreenState extends State<UploadScreen> {
                   child: _buildCurrentStep(context, colorScheme),
                 ),
               ),
-              _buildNavButtons(colorScheme),
+              _buildNavButtons(colorScheme, totalSteps),
             ],
           ),
     );
   }
 
-  Widget _buildStepIndicator(ColorScheme colorScheme) {
+  Widget _buildStepIndicator(ColorScheme colorScheme, int total) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 30),
       child: Row(
-        children: List.generate(4, (index) {
+        children: List.generate(total, (index) {
           bool isCurrent = _currentStep == index;
           bool isDone = _currentStep > index;
           return Expanded(
@@ -183,7 +188,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       : Text("${index + 1}", style: TextStyle(color: isCurrent ? Colors.white : colorScheme.onSurface.withOpacity(0.5), fontWeight: FontWeight.bold)),
                   ),
                 ),
-                if (index < 3) 
+                if (index < total - 1) 
                   Expanded(
                     child: Container(
                       height: 2,
@@ -245,7 +250,12 @@ class _UploadScreenState extends State<UploadScreen> {
       padding: const EdgeInsets.all(25),
       children: [
         _sectionTitle("Verification & Evidence"),
-        _dropdown("Project Maturity", _projectType, ["Business Idea", "Investment Seeking", "Operational"], (v) => setState(() => _projectType = v!)),
+        _dropdown("Project Maturity", _projectType, ["Business Idea", "Shareholder Seeking", "Operational"], (v) {
+          setState(() {
+            _projectType = v!;
+            if (_currentStep > 2 && _projectType != "Shareholder Seeking") _currentStep = 2;
+          });
+        }),
         const SizedBox(height: 20),
         _filePicker("Main Project Document (Required PDF)", _mainFile, (f) => setState(() => _mainFile = f), allowedExtensions: ['pdf']),
         if (_projectType == "Business Idea")
@@ -266,28 +276,22 @@ class _UploadScreenState extends State<UploadScreen> {
       key: const ValueKey(3),
       padding: const EdgeInsets.all(25),
       children: [
-        _sectionTitle("Shareholder Seeking"),
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: colorScheme.surface, borderRadius: BorderRadius.circular(15), border: Border.all(color: colorScheme.primary.withOpacity(0.1))),
-          child: SwitchListTile(
-            title: const Text("Open for Shareholder Seeking?", style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text("Allow others to buy shares in your project"),
-            value: _isShareholderSeeking,
-            onChanged: (v) => setState(() => _isShareholderSeeking = v),
-          ),
+        _sectionTitle("Shareholder Configuration"),
+        Text(
+          "As you are seeking shareholders, please define your market offering.",
+          style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 13),
         ),
         const SizedBox(height: 25),
-        if (_isShareholderSeeking) ...[
-          _input("Maximum Number of Shareholders", _maxHolders, Icons.groups, context, isNum: true),
-          _input("Minimum Share Percentage (%)", _minShare, Icons.percent, context, isNum: true),
-          _input("Share Value (RWF)", _shareValue, Icons.money, context, isNum: true),
-        ],
+        _input("Total Shares on Market (%)", _totalShares, Icons.pie_chart, context, isNum: true),
+        _input("Maximum Number of Shareholders", _maxShareholders, Icons.groups, context, isNum: true),
+        _input("Minimum Share per Holder (%)", _minShare, Icons.percent, context, isNum: true),
+        _input("Share Unit Value (RWF)", _shareValue, Icons.money, context, isNum: true),
       ].animate(interval: 50.ms).fadeIn(duration: 300.ms).slideX(begin: 0.1),
     );
   }
 
-  Widget _buildNavButtons(ColorScheme colorScheme) {
+  Widget _buildNavButtons(ColorScheme colorScheme, int total) {
+    bool isLast = _currentStep == total - 1;
     return Container(
       padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(color: colorScheme.surface, border: Border(top: BorderSide(color: colorScheme.onSurface.withOpacity(0.05)))),
@@ -306,7 +310,7 @@ class _UploadScreenState extends State<UploadScreen> {
             flex: 2,
             child: ElevatedButton(
               onPressed: () {
-                if (_currentStep < 3) {
+                if (!isLast) {
                   setState(() => _currentStep++);
                 } else {
                   _submit();
@@ -314,10 +318,10 @@ class _UploadScreenState extends State<UploadScreen> {
               },
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 18), 
-                backgroundColor: _currentStep == 3 ? Colors.green : colorScheme.primary,
+                backgroundColor: isLast ? Colors.green : colorScheme.primary,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
               ),
-              child: Text(_currentStep == 3 ? "SUBMIT FOR ANALYSIS" : "NEXT STEP", style: const TextStyle(fontWeight: FontWeight.bold)),
+              child: Text(isLast ? "SUBMIT FOR ANALYSIS" : "NEXT STEP", style: const TextStyle(fontWeight: FontWeight.bold)),
             ),
           ),
         ],
@@ -329,8 +333,6 @@ class _UploadScreenState extends State<UploadScreen> {
     padding: const EdgeInsets.only(bottom: 20),
     child: Text(t, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
   );
-
-  TextEditingController get _maxHolders => _maxShareholders;
 
   Widget _input(String h, TextEditingController c, IconData i, BuildContext context, {int lines = 1, bool isNum = false}) => Padding(
     padding: const EdgeInsets.only(bottom: 20),

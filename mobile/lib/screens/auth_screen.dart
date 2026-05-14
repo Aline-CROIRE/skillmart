@@ -113,9 +113,9 @@ class _AuthScreenState extends State<AuthScreen> {
                           children: [
                             Container(
                               padding: const EdgeInsets.all(15),
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 color: Colors.white,
-                                shape: BoxShape.circle,
+                                borderRadius: BorderRadius.circular(20),
                               ),
                               child: Image.asset('assets/logo.png', height: 80),
                             ),

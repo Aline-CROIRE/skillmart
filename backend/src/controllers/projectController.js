@@ -42,27 +42,30 @@ exports.updateProject = async (req, res) => {
 
 exports.getAllProjects = async (req, res) => {
   try {
-    const userId = req.query.userId;
-    let filter = { status: 'approved' };
-
-    if (userId && userId !== 'null' && mongoose.Types.ObjectId.isValid(userId)) {
-      const user = await User.findById(userId);
-      if (user) {
-        filter = {
-          $and: [
-            { status: 'approved' },
-            { sellerId: { $ne: new mongoose.Types.ObjectId(userId) } },
-            { _id: { $nin: user.purchasedProjects } }
-          ]
-        };
-      }
-    }
-
-    const projects = await Project.find(filter)
+    const projects = await Project.find({ status: { $ne: 'rejected' } })
       .populate('sellerId', 'name')
       .sort({ createdAt: -1 });
 
     res.json(projects);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.watchProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    if (!project.watchers.includes(userId)) {
+      project.watchers.push(userId);
+      await project.save();
+    }
+
+    res.json({ message: "You will be notified when this project is approved!" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

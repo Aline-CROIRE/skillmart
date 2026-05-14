@@ -71,11 +71,11 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: "Explore"),
     BottomNavigationBarItem(icon: Icon(Icons.auto_stories_outlined), label: "My Work"),
     BottomNavigationBarItem(icon: Icon(Icons.bookmark_outline), label: "Collection"),
-    BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), label: "Wallet"),
+    BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Account"),
   ];
 
   List<BottomNavigationBarItem> _staffItems() => const [
     BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: "Review Hub"),
-    BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), label: "Insights"),
+    BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Account"),
   ];
 }

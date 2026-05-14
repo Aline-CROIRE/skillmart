@@ -136,4 +136,11 @@ class ApiService {
       return res.statusCode == 200;
     } catch (e) { return false; }
   }
+
+  Future<bool> watchProject(String id, String token) async {
+    try {
+      final res = await http.post(Uri.parse('$baseUrl/projects/watch/$id'), headers: _headers(token));
+      return res.statusCode == 200;
+    } catch (e) { return false; }
+  }
 }

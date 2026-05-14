@@ -22,9 +22,8 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   Future<void> _fetch() async {
     setState(() => _isLoading = true);
     final prefs = await SharedPreferences.getInstance();
-    final uid = prefs.getString('userId'); // Get my ID
+    final uid = prefs.getString('userId'); 
     
-    // API now filters out my creations and my purchases automatically
     final data = await _api.getAllProjects(userId: uid);
     
     if (mounted) setState(() { _projects = data; _isLoading = false; });
@@ -65,44 +64,73 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     padding: const EdgeInsets.all(20),
     sliver: SliverGrid(
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 0.72,
+        crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 0.7,
       ),
       delegate: SliverChildBuilderDelegate((context, i) => _card(_projects[i], context), childCount: _projects.length),
     ),
   );
 
-  Widget _card(Project p, BuildContext context) => InkWell(
-    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProjectDetailsScreen(project: p))).then((_) => _fetch()),
-    child: Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface, 
-        borderRadius: BorderRadius.circular(20), 
-        boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withOpacity(0.05), blurRadius: 10)]
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Container(
-              width: double.infinity, 
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.05), 
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20))
-              ), 
-              child: Icon(Icons.auto_stories, color: Theme.of(context).colorScheme.primary)
+  Widget _card(Project p, BuildContext context) {
+    final isPending = p.status != 'approved';
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProjectDetailsScreen(project: p))).then((_) => _fetch()),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surface, 
+          borderRadius: BorderRadius.circular(20), 
+          boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withOpacity(0.05), blurRadius: 10)]
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity, 
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withOpacity(0.05), 
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                      image: p.thumbnailUrl.isNotEmpty 
+                        ? DecorationImage(
+                            image: NetworkImage("https://skillmart-api.onrender.com${p.thumbnailUrl}"),
+                            fit: BoxFit.cover
+                          )
+                        : null
+                    ), 
+                    child: p.thumbnailUrl.isEmpty 
+                      ? Icon(Icons.auto_stories, color: colorScheme.primary)
+                      : null,
+                  ),
+                  if (isPending)
+                    Positioned(
+                      top: 10, right: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(10)),
+                        child: const Text("PENDING", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                ],
+              )
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p.title, style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                isPending 
+                  ? Text("Awaiting Analytics", style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontSize: 11))
+                  : Text("RWF ${p.price}", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w900, fontSize: 14)),
+              ]),
             )
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(p.title, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface), maxLines: 1),
-              Text("RWF ${p.price}", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w900)),
-            ]),
-          )
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _buildDiscoveryEmptyState(BuildContext context) => SliverFillRemaining(
     child: Center(child: Text("You've seen everything! Check back later.", style: TextStyle(color: Theme.of(context).colorScheme.onSurface))),

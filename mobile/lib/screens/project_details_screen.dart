@@ -62,55 +62,91 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     }
   }
 
+  void _handleWatch() async {
+    setState(() => _isProcessing = true);
+    final prefs = await SharedPreferences.getInstance();
+    final success = await ApiService().watchProject(widget.project.id, prefs.getString('token')!);
+    if (mounted) {
+      setState(() => _isProcessing = false);
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("We will notify you when approved!"), backgroundColor: Colors.green));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Action failed."), backgroundColor: Colors.red));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isMyProject = _currentUserId == widget.project.sellerId;
+    bool isApproved = widget.project.status == 'approved';
     final colorScheme = Theme.of(context).colorScheme;
     
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text("Overview"), elevation: 0),
+      appBar: AppBar(title: const Text("Project Overview"), elevation: 0),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(25),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: double.infinity, height: 220,
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withOpacity(0.05), 
-                borderRadius: BorderRadius.circular(20),
-                image: widget.project.thumbnailUrl.isNotEmpty 
-                  ? DecorationImage(
-                      image: NetworkImage("https://skillmart-api.onrender.com${widget.project.thumbnailUrl}"),
-                      fit: BoxFit.cover
-                    )
-                  : null
-              ),
-              child: widget.project.thumbnailUrl.isEmpty 
-                ? Icon(Icons.folder_shared, size: 60, color: colorScheme.primary)
-                : null,
-            ),
+            _buildThumbnail(colorScheme, !isApproved && !isMyProject),
             const SizedBox(height: 30),
             Text(widget.project.title, style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
             Text("By ${widget.project.sellerName}", style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5))),
-            const SizedBox(height: 25),
             
-            // New Metadata Section
-            _buildInfoRow("Ownership", widget.project.ownerType, Icons.person, colorScheme),
-            _buildInfoRow("Type", widget.project.projectType, Icons.category, colorScheme),
-            if (widget.project.isShareholderSeeking)
-              _buildInfoRow("Shareholders", "Seeking ${widget.project.maxShareholders}", Icons.groups, colorScheme),
+            if (!isApproved && !isMyProject) ...[
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.orange.withOpacity(0.2))),
+                child: Row(
+                  children: [
+                    const Icon(Icons.analytics_outlined, color: Colors.orange),
+                    const SizedBox(width: 15),
+                    Expanded(child: Text("This project is currently undergoing expert analysis. Analytics and pricing are not yet available.", style: TextStyle(color: colorScheme.onSurface, fontSize: 13))),
+                  ],
+                ),
+              ),
+            ],
 
             const SizedBox(height: 25),
             Text("Information", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
             const SizedBox(height: 10),
             Text(widget.project.description, style: TextStyle(fontSize: 15, height: 1.6, color: colorScheme.onSurface.withOpacity(0.8))),
+            
+            if (isApproved || isMyProject) ...[
+              const SizedBox(height: 25),
+              _buildInfoRow("Ownership", widget.project.ownerType, Icons.person, colorScheme),
+              _buildInfoRow("Type", widget.project.projectType, Icons.category, colorScheme),
+              if (widget.project.isShareholderSeeking)
+                _buildInfoRow("Shareholders", "Seeking ${widget.project.maxShareholders}", Icons.groups, colorScheme),
+            ],
+
             const SizedBox(height: 100),
           ],
         ),
       ),
-      bottomSheet: _buildFooter(isMyProject, colorScheme),
+      bottomSheet: _buildFooter(isMyProject, isApproved, colorScheme),
+    );
+  }
+
+  Widget _buildThumbnail(ColorScheme colorScheme, bool isBlurred) {
+    return Container(
+      width: double.infinity, height: 220,
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withOpacity(0.05), 
+        borderRadius: BorderRadius.circular(20),
+        image: widget.project.thumbnailUrl.isNotEmpty 
+          ? DecorationImage(
+              image: NetworkImage("https://skillmart-api.onrender.com${widget.project.thumbnailUrl}"),
+              fit: BoxFit.cover
+            )
+          : null
+      ),
+      child: widget.project.thumbnailUrl.isEmpty 
+        ? Icon(Icons.folder_shared, size: 60, color: colorScheme.primary)
+        : null,
     );
   }
 
@@ -128,29 +164,50 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     );
   }
 
-  Widget _buildFooter(bool isMine, ColorScheme colorScheme) {
-    return Container(
-      padding: const EdgeInsets.all(25),
-      decoration: BoxDecoration(
-        color: colorScheme.surface, 
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor))
-      ),
+  Widget _buildFooter(bool isMine, bool isApproved, ColorScheme colorScheme) {
+    if (isMine) {
+      return _footerContainer(
+        colorScheme,
+        child: const Text("YOU ARE THE CREATOR", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+      );
+    }
+
+    if (!isApproved) {
+      return _footerContainer(
+        colorScheme,
+        child: ElevatedButton.icon(
+          onPressed: _isProcessing ? null : _handleWatch,
+          icon: const Icon(Icons.notifications_active_outlined),
+          label: const Text("WAIT FOR ANALYTICS", style: TextStyle(fontWeight: FontWeight.bold)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 55),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          ),
+        ),
+      );
+    }
+
+    // Approved & Not Mine
+    return _footerContainer(
+      colorScheme,
       child: Row(
         children: [
-          if (!widget.isOwned && !isMine)
+          if (!widget.isOwned)
             Expanded(child: Text("RWF ${widget.project.price}", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: colorScheme.primary))),
           
           Expanded(
             child: SizedBox(
               height: 55,
               child: ElevatedButton(
-                onPressed: isMine ? null : (widget.isOwned ? _openFile : _confirmPurchase),
+                onPressed: widget.isOwned ? _openFile : _confirmPurchase,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isMine ? Theme.of(context).disabledColor : colorScheme.primary,
+                  backgroundColor: colorScheme.primary,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
                 child: Text(
-                  isMine ? "YOUR CREATION" : (widget.isOwned ? "OPEN DOCUMENT" : "GET ACCESS"),
+                  widget.isOwned ? "OPEN DOCUMENT" : "GET ACCESS",
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -158,6 +215,17 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
           )
         ],
       ),
+    );
+  }
+
+  Widget _footerContainer(ColorScheme colorScheme, {required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: colorScheme.surface, 
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor))
+      ),
+      child: child,
     );
   }
 }

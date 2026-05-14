@@ -16,7 +16,7 @@ const projectSchema = new mongoose.Schema({
   linkedinUrl: { type: String },
 
   // Project Type details
-  projectType: { type: String, enum: ['Business Idea', 'Investment Seeking', 'Operational'], default: 'Business Idea' },
+  projectType: { type: String, enum: ['Business Idea', 'Shareholder Seeking', 'Operational'], default: 'Business Idea' },
   externalLink: { type: String },
   proposalUrl: { type: String },
   rdbProofUrl: { type: String },
@@ -28,6 +28,7 @@ const projectSchema = new mongoose.Schema({
   // Shareholder seeking details
   isShareholderSeeking: { type: Boolean, default: false },
   maxShareholders: { type: Number },
+  totalSharesAvailable: { type: Number },
   minShare: { type: Number },
   shareValue: { type: Number },
 
@@ -39,6 +40,7 @@ const projectSchema = new mongoose.Schema({
   },
   analystId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   reviewNote: { type: String, default: "" },
+  watchers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
   stats: {
     views: { type: Number, default: 0 },
