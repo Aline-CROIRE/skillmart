@@ -1,62 +1,45 @@
 const express = require('express');
 const router = express.Router();
+const { createProject, getAllProjects, getSellerProjects } = require('../controllers/projectController');
+const { protect } = require('../middlewares/authMiddleware');
 const upload = require('../config/multer');
-const { uploadFile, createProject } = require('../controllers/projectController');
 
 /**
  * @openapi
  * /api/projects/upload:
  *   post:
- *     summary: Upload a project file
+ *     summary: Upload physical file
  *     tags: [Projects]
- *     requestBody:
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               file:
- *                 type: string
- *                 format: binary
- *     responses:
- *       200:
- *         description: File uploaded successfully
  */
-router.post('/upload', upload.single('file'), uploadFile);
+router.post('/upload', upload.single('file'), (req, res) => {
+  res.status(200).json({ fileUrl: `/uploads/${req.file.filename}` });
+});
 
 /**
  * @openapi
  * /api/projects:
  *   post:
- *     summary: Create a new project submission
+ *     summary: Create project metadata
  *     tags: [Projects]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - title
- *               - description
- *               - category
- *               - sellerId
- *             properties:
- *               title:
- *                 type: string
- *               description:
- *                 type: string
- *               category:
- *                 type: string
- *                 enum: [Web, Mobile, AI, Design, Other]
- *               fileUrl:
- *                 type: string
- *               sellerId:
- *                 type: string
- *     responses:
- *       201:
- *         description: Project created
  */
-router.post('/', createProject);
+router.post('/', protect, createProject);
+
+/**
+ * @openapi
+ * /api/projects:
+ *   get:
+ *     summary: Get all approved marketplace projects
+ *     tags: [Projects]
+ */
+router.get('/', getAllProjects);
+
+/**
+ * @openapi
+ * /api/projects/seller/{sellerId}:
+ *   get:
+ *     summary: Get all projects by a specific seller
+ *     tags: [Projects]
+ */
+router.get('/seller/:sellerId', protect, getSellerProjects);
 
 module.exports = router;

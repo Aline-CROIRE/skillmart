@@ -1,46 +1,45 @@
 const Project = require('../models/Project');
-const { addProjectToQueue } = require('../jobs/projectQueue');
 
-exports.uploadFile = (req, res) => {
-  if (!req.file) {
-    res.status(400);
-    throw new Error('No file uploaded');
-  }
-  res.status(200).json({
-    message: 'File uploaded successfully',
-    fileUrl: `/uploads/${req.file.filename}`,
-  });
-};
-
+// Create a new project (Status starts as 'pending' for Analysts)
 exports.createProject = async (req, res, next) => {
   try {
-    const { title, description, category, fileUrl, sellerId } = req.body;
-
-    if (!title || !description || !category || !sellerId) {
-      res.status(400);
-      throw new Error('Please provide all required fields');
-    }
+    const { title, description, category, price, fileUrl, sellerId } = req.body;
 
     const project = await Project.create({
       title,
       description,
       category,
+      price: Number(price) || 0,
       fileUrl,
       sellerId,
-      status: 'analyzing'
+      status: 'pending' // Projects start here
     });
 
-    await addProjectToQueue({
-      projectId: project._id,
-      title: project.title,
-      description: project.description,
-      fileUrl: project.fileUrl
-    });
+    res.status(201).json(project);
+  } catch (error) {
+    console.error("CREATE PROJECT ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
 
-    res.status(201).json({
-      message: 'Project submitted and queued for analysis',
-      project
-    });
+// Get only approved projects for the marketplace
+exports.getAllProjects = async (req, res, next) => {
+  try {
+    const projects = await Project.find({ status: 'approved' })
+      .populate('sellerId', 'name')
+      .sort({ createdAt: -1 });
+    res.json(projects);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Get specific seller's projects (for "My Contributions" screen)
+exports.getSellerProjects = async (req, res, next) => {
+  try {
+    const projects = await Project.find({ sellerId: req.params.sellerId })
+      .sort({ createdAt: -1 });
+    res.json(projects);
   } catch (error) {
     next(error);
   }

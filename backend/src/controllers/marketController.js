@@ -5,37 +5,36 @@ const Transaction = require('../models/Transaction');
 exports.purchaseProject = async (req, res, next) => {
   try {
     const { projectId } = req.body;
-    const buyer = req.user;
-    const project = await Project.findById(projectId).populate('sellerId');
+    const buyer = await User.findById(req.user._id);
+    const project = await Project.findById(projectId);
 
-    if (buyer.walletBalance < project.price) {
-      return res.status(400).json({ message: 'Insufficient funds' });
-    }
+    if (!project) return res.status(404).json({ message: "Project not found" });
+    if (buyer.walletBalance < project.price) return res.status(400).json({ message: "Insufficient RWF balance" });
 
-    // Atomic Balance Update
-    await User.findByIdAndUpdate(buyer._id, { $inc: { walletBalance: -project.price }, $push: { purchasedProjects: projectId } });
-    await User.findByIdAndUpdate(project.sellerId._id, { $inc: { walletBalance: project.price } });
-    await Project.findByIdAndUpdate(projectId, { $inc: { 'stats.sales': 1 } });
+    // 1. Deduct from buyer, add to library
+    await User.findByIdAndUpdate(buyer._id, { 
+      $inc: { walletBalance: -project.price },
+      $push: { purchasedProjects: projectId }
+    });
 
-    await Transaction.create({ buyer: buyer._id, seller: project.sellerId._id, project: projectId, amount: project.price });
+    // 2. Add to seller
+    await User.findByIdAndUpdate(project.sellerId, { $inc: { walletBalance: project.price } });
 
-    res.json({ message: 'Purchase successful' });
-  } catch (error) {
-    next(error);
-  }
+    // 3. Log Transaction
+    await Transaction.create({
+      buyer: buyer._id,
+      seller: project.sellerId,
+      project: projectId,
+      amount: project.price
+    });
+
+    res.json({ message: "Purchase successful! Project added to library." });
+  } catch (error) { next(error); }
 };
 
-exports.getAllProjects = async (req, res) => {
-  const { category, search } = req.query;
-  let filter = { status: 'approved' }; // Only show approved projects
-  if (category) filter.category = category;
-  if (search) filter.title = { $regex: search, $options: 'i' };
-  
-  const projects = await Project.find(filter);
-  res.json(projects);
-};
-
-exports.getMyLibrary = async (req, res) => {
-  const user = await User.findById(req.user._id).populate('purchasedProjects');
-  res.json(user.purchasedProjects);
+exports.getMyLibrary = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).populate('purchasedProjects');
+    res.json(user.purchasedProjects);
+  } catch (error) { next(error); }
 };
