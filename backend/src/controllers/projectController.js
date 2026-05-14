@@ -2,36 +2,55 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 
-// 1. CREATE NEW
 exports.createProject = async (req, res) => {
   try {
-    const project = await Project.create({ ...req.body, status: 'pending' });
+    const { title, description, category, price, fileUrl, sellerId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ message: "Invalid user session." });
+    }
+
+    const project = await Project.create({
+      title,
+      description,
+      category,
+      price: Number(price) || 0,
+      fileUrl,
+      sellerId,
+      status: 'pending'
+    });
+
     res.status(201).json(project);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// 2. UPDATE EXISTING (RE-SUBMISSION) - This fixes the crash
 exports.updateProject = async (req, res) => {
   try {
     const { title, description, category, price, fileUrl } = req.body;
+    
     const project = await Project.findByIdAndUpdate(
       req.params.id,
       { 
-        title, description, category, price: Number(price), fileUrl, 
+        title, 
+        description, 
+        category, 
+        price: Number(price), 
+        fileUrl, 
         status: 'pending', 
         reviewNote: "" 
       },
       { new: true }
     );
+
+    if (!project) return res.status(404).json({ message: "Project not found" });
     res.json(project);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// 3. MARKETPLACE VIEW (With Ownership Filtering)
 exports.getAllProjects = async (req, res) => {
   try {
     const userId = req.query.userId;
@@ -40,26 +59,45 @@ exports.getAllProjects = async (req, res) => {
     if (userId && userId !== 'null' && mongoose.Types.ObjectId.isValid(userId)) {
       const user = await User.findById(userId);
       if (user) {
-        // Hide projects the user has already bought
-        filter._id = { $nin: user.purchasedProjects };
+        filter = {
+          $and: [
+            { status: 'approved' },
+            { sellerId: { $ne: new mongoose.Types.ObjectId(userId) } },
+            { _id: { $nin: user.purchasedProjects } }
+          ]
+        };
       }
     }
 
     const projects = await Project.find(filter)
       .populate('sellerId', 'name')
       .sort({ createdAt: -1 });
+
     res.json(projects);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// 4. SELLER DASHBOARD
 exports.getSellerProjects = async (req, res) => {
   try {
-    const projects = await Project.find({ sellerId: req.params.sellerId })
-      .sort({ createdAt: -1 });
+    const { sellerId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return res.status(400).json({ message: "Invalid Seller ID" });
+    }
+
+    const projects = await Project.find({ sellerId }).sort({ createdAt: -1 });
     res.json(projects);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getProjectById = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id).populate('sellerId', 'name');
+    if (!project) return res.status(404).json({ message: "Project not found" });
+    res.json(project);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
