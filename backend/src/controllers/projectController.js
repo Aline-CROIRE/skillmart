@@ -1,62 +1,43 @@
 const Project = require('../models/Project');
 const mongoose = require('mongoose');
 
-// 1. CREATE PROJECT (Seller Upload)
-exports.createProject = async (req, res, next) => {
+// 1. CREATE NEW
+exports.createProject = async (req, res) => {
   try {
-    const { title, description, category, price, fileUrl, sellerId } = req.body;
-
-    // Log incoming data for debugging in Render
-    console.log("📥 New Submission Received:", { title, category, price, sellerId });
-
-    // Validation: Ensure sellerId is a real MongoDB ID
-    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
-      console.error("❌ Invalid Seller ID format:", sellerId);
-      return res.status(400).json({ 
-        message: "Your session has expired. Please logout and login again." 
-      });
-    }
-
-    // Save to Database
-    const project = await Project.create({
-      title,
-      description,
-      category,
-      price: Number(price) || 0, // Ensure it is a number
-      fileUrl,
-      sellerId,
-      status: 'pending' // Human Analysts look for 'pending' projects
-    });
-
-    console.log("✅ Project Created in DB:", project._id);
+    const project = await Project.create({ ...req.body, status: 'pending' });
     res.status(201).json(project);
-
-  } catch (error) {
-    console.error("❌ CREATE PROJECT CRASH:", error.message);
-    res.status(500).json({ message: "Server Error", error: error.message });
-  }
+  } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
-// 2. MARKETPLACE VIEW (Get Approved Projects)
-exports.getAllProjects = async (req, res, next) => {
+// 2. UPDATE EXISTING (Resubmission)
+exports.updateProject = async (req, res) => {
   try {
-    // Only show 'approved' projects in the marketplace
-    const projects = await Project.find({ status: 'approved' })
-      .populate('sellerId', 'name')
-      .sort({ createdAt: -1 });
-    res.json(projects);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+    const { title, description, category, price, fileUrl } = req.body;
+    const project = await Project.findByIdAndUpdate(
+      req.params.id,
+      { 
+        title, description, category, price, fileUrl, 
+        status: 'pending', // Reset to pending for Analyst to see
+        reviewNote: ""     // Clear old feedback
+      },
+      { new: true }
+    );
+    res.json({ message: "Work resubmitted successfully", project });
+  } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
-// 3. SELLER DASHBOARD (Get specific user's work)
-exports.getSellerProjects = async (req, res, next) => {
+// 3. MARKETPLACE VIEW
+exports.getAllProjects = async (req, res) => {
   try {
-    const projects = await Project.find({ sellerId: req.params.sellerId })
-      .sort({ createdAt: -1 });
+    const projects = await Project.find({ status: 'approved' }).populate('sellerId', 'name');
     res.json(projects);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+  } catch (error) { res.status(500).json({ message: error.message }); }
+};
+
+// 4. SELLER DASHBOARD
+exports.getSellerProjects = async (req, res) => {
+  try {
+    const projects = await Project.find({ sellerId: req.params.sellerId });
+    res.json(projects);
+  } catch (error) { res.status(500).json({ message: error.message }); }
 };
