@@ -15,7 +15,9 @@ app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors());
 app.use(express.json());
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// CRITICAL FIX: Ensure the absolute path to 'uploads' is used
+const uploadPath = path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadPath));
 
 // Routes
 app.use('/api/auth', authRoutes);
