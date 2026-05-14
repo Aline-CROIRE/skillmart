@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'services/notification_service.dart';
 import 'screens/onboarding_screen.dart';
 import 'theme.dart';
 
-void main() => runApp(const SkillMartApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    await PushNotificationService.initialize();
+  } catch (e) {
+    debugPrint("Firebase init error: $e");
+  }
+  runApp(const SkillMartApp());
+}
 
 class SkillMartApp extends StatefulWidget {
   const SkillMartApp({super.key});

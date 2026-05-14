@@ -27,7 +27,12 @@ exports.claimProject = async (req, res) => {
   }
 };
 
-// 3. Analyst submits final evaluation (Matches line 8 in routes)
+const { sendNotificationEmail } = require('../services/emailService');
+const { sendPushNotification } = require('../services/notificationService');
+
+// ... (previous functions unchanged)
+
+// 3. Analyst submits final evaluation
 exports.submitDecision = async (req, res) => {
   try {
     const { status, reviewNote, price } = req.body;
@@ -38,17 +43,45 @@ exports.submitDecision = async (req, res) => {
       req.params.id,
       updateData,
       { new: true }
-    ).populate('watchers', 'email');
+    ).populate('watchers', 'email').populate('sellerId', 'email');
 
-    if (status === 'approved' && project.watchers && project.watchers.length > 0) {
+    // Notify Bookmarkers
+    if (project.watchers && project.watchers.length > 0) {
       for (const user of project.watchers) {
         if (user.email) {
-          sendApprovalEmail(user.email, project.title);
+          sendNotificationEmail(user.email, project.title, status);
+        }
+        if (user.fcmToken) {
+          let pushTitle = ''; let pushBody = '';
+          if (status === 'approved') {
+            pushTitle = 'Expert Review Complete!';
+            pushBody = `Analytics for "${project.title}" are now available in your feed.`;
+          } else if (status === 'rejected') {
+            pushTitle = 'Project Update';
+            pushBody = `Project "${project.title}" did not meet the criteria for approval at this time.`;
+          }
+          if (pushTitle) sendPushNotification(user.fcmToken, pushTitle, pushBody);
         }
       }
-      // Clear watchers after notifying
-      project.watchers = [];
-      await project.save();
+      // Clear watchers after notifying only if it's a final state (approved/rejected)
+      if (status === 'approved' || status === 'rejected') {
+        project.watchers = [];
+        await project.save();
+      }
+    }
+
+    // SPECIFIC: Notify Owner if review is requested
+    if (status === 'needs_changes' && project.sellerId) {
+      if (project.sellerId.email) {
+        sendNotificationEmail(project.sellerId.email, project.title, 'needs_changes');
+      }
+      if (project.sellerId.fcmToken) {
+        sendPushNotification(
+          project.sellerId.fcmToken, 
+          'Action Required!', 
+          `An expert has requested a review for your project "${project.title}". Check feedback and resubmit.`
+        );
+      }
     }
 
     res.json({ message: "Evaluation recorded", project });

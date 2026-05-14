@@ -27,3 +27,8 @@ backend/uploads/*
 # Production
 dist/
 build/
+
+# Firebase & Secrets
+backend/src/config/firebase-service-account.json
+mobile/android/app/google-services.json
+mobile/ios/Runner/GoogleService-Info.plist

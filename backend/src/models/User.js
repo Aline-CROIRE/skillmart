@@ -13,7 +13,15 @@ const userSchema = new mongoose.Schema({
   walletBalance: { type: Number, default: 0 },
   bio: { type: String },
   avatar: { type: String },
-  purchasedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]
+  fcmToken: { type: String },
+  phoneNumber: { type: String },
+  newEmail: { type: String }, // For email change verification
+  isVerified: { type: Boolean, default: false },
+  verificationToken: { type: String },
+  emailHistory: [String],
+  phoneHistory: [String],
+  purchasedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
+  bookmarkedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]
 }, { timestamps: true });
 
 userSchema.pre('save', async function(next) {

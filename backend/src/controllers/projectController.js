@@ -52,7 +52,7 @@ exports.getAllProjects = async (req, res) => {
   }
 };
 
-exports.watchProject = async (req, res) => {
+exports.bookmarkProject = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user._id;
@@ -60,12 +60,26 @@ exports.watchProject = async (req, res) => {
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: "Project not found" });
 
-    if (!project.watchers.includes(userId)) {
-      project.watchers.push(userId);
-      await project.save();
+    const user = await User.findById(userId);
+    
+    const isBookmarked = user.bookmarkedProjects.includes(id);
+
+    if (isBookmarked) {
+      // Unbookmark
+      user.bookmarkedProjects = user.bookmarkedProjects.filter(pId => pId.toString() !== id);
+      project.watchers = project.watchers.filter(wId => wId.toString() !== userId.toString());
+    } else {
+      // Bookmark
+      user.bookmarkedProjects.push(id);
+      if (!project.watchers.includes(userId)) {
+        project.watchers.push(userId);
+      }
     }
 
-    res.json({ message: "You will be notified when this project is approved!" });
+    await user.save();
+    await project.save();
+
+    res.json({ message: isBookmarked ? "Removed from bookmarks" : "Bookmarked successfully", isBookmarked: !isBookmarked });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -90,6 +104,33 @@ exports.getProjectById = async (req, res) => {
     const project = await Project.findById(req.params.id).populate('sellerId', 'name');
     if (!project) return res.status(404).json({ message: "Project not found" });
     res.json(project);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.transferProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { targetEmail } = req.body;
+    const currentUserId = req.user._id;
+
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    // Check ownership
+    if (project.sellerId.toString() !== currentUserId.toString()) {
+      return res.status(403).json({ message: "Only the owner can transfer this project." });
+    }
+
+    const targetUser = await User.findOne({ email: targetEmail });
+    if (!targetUser) return res.status(404).json({ message: "Recipient user not found." });
+
+    // Perform Transfer
+    project.sellerId = targetUser._id;
+    await project.save();
+
+    res.json({ message: `Project transferred successfully to ${targetEmail}` });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

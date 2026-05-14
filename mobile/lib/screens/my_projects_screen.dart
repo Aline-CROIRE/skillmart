@@ -90,22 +90,23 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
             ),
             const SizedBox(height: 5),
             Text(p.category, style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontSize: 13)),
-            if (needsWork) ...[
+            if (needsWork || p.status == 'pending') ...[
               const SizedBox(height: 15),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("Analyst Feedback:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-                    const SizedBox(height: 5),
-                    Text(p.reviewNote, style: TextStyle(fontSize: 14, color: colorScheme.onSurface)),
-                  ],
+              if (needsWork)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Analyst Feedback:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                      const SizedBox(height: 5),
+                      Text(p.reviewNote, style: TextStyle(fontSize: 14, color: colorScheme.onSurface)),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 15),
+              if (needsWork) const SizedBox(height: 15),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -113,8 +114,8 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
                     context, 
                     MaterialPageRoute(builder: (_) => UploadScreen(existingProject: p))
                   ).then((_) => _fetch()),
-                  icon: const Icon(Icons.edit_document, size: 18),
-                  label: const Text("FIX & RESUBMIT"),
+                  icon: Icon(needsWork ? Icons.edit_document : Icons.edit, size: 18),
+                  label: Text(needsWork ? "FIX & RESUBMIT" : "EDIT SUBMISSION"),
                 ),
               )
             ],

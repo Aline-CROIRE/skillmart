@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
@@ -20,6 +21,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _balance = 0;
   bool _isLoading = true;
   bool _isUploading = false;
+  File? _localAvatar;
+
+  String _phoneNumber = "";
+  String _bio = "";
 
   @override
   void initState() { super.initState(); _load(); }
@@ -35,6 +40,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _email = profile['email'] ?? "";
           _avatarUrl = profile['avatar'] ?? "";
           _balance = profile['walletBalance'] ?? 0;
+          _phoneNumber = profile['phoneNumber'] ?? "";
+          _bio = profile['bio'] ?? "";
           _isLoading = false;
         });
       }
@@ -43,24 +50,124 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _editProfile() async {
+    final nameCtrl = TextEditingController(text: _name);
+    final bioCtrl = TextEditingController(text: _bio);
+    final emailCtrl = TextEditingController(text: _email);
+    final phoneCtrl = TextEditingController(text: _phoneNumber);
+
+    final updated = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Edit Profile"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Full Name")),
+              TextField(controller: bioCtrl, decoration: const InputDecoration(labelText: "Bio")),
+              TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email (Requires Verification)")),
+              TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: "Phone Number")),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text("SAVE CHANGES")),
+        ],
+      )
+    );
+
+    if (updated == true) {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+      
+      setState(() => _isLoading = true);
+      final res = await ApiService().updateProfile(
+        token: token,
+        name: nameCtrl.text,
+        bio: bioCtrl.text,
+        email: emailCtrl.text,
+        phoneNumber: phoneCtrl.text,
+      );
+
+      if (mounted) {
+        final msg = res?['message'] ?? "Profile updated";
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.blue));
+        _load(); // Refresh
+      }
+    }
+  }
+
   Future<void> _pickAndUploadAvatar() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result == null) return;
 
-    setState(() => _isUploading = true);
+    final pickedFile = result.files.first;
+    if (pickedFile.path == null) return;
+
+    // Show Circular Preview Dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        title: const Text("Preview Profile Picture"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("This is how your avatar will look:"),
+            const SizedBox(height: 20),
+            CircleAvatar(
+              radius: 80,
+              backgroundImage: FileImage(File(pickedFile.path!)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCEL")),
+          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text("USE THIS")),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isUploading = true;
+      _localAvatar = File(pickedFile.path!);
+    });
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token') ?? '';
     
-    final response = await ApiService().updateAvatar(result.files.first, token);
+    final response = await ApiService().updateAvatar(pickedFile, token);
     if (mounted) {
       setState(() {
         _isUploading = false;
         if (response != null) {
           _avatarUrl = response['avatar'] ?? "";
+          _localAvatar = null;
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Profile picture updated!"), backgroundColor: Colors.green));
         }
       });
     }
+  }
+
+  void _showFullImage() {
+    if (_avatarUrl.isEmpty && _localAvatar == null) return;
+    
+    Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(backgroundColor: Colors.transparent, iconTheme: const IconThemeData(color: Colors.white)),
+      body: Center(
+        child: Hero(
+          tag: 'profile_pic',
+          child: _localAvatar != null 
+            ? Image.file(_localAvatar!) 
+            : Image.network(_avatarUrl),
+        ),
+      ),
+    )));
   }
 
   @override
@@ -114,23 +221,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileHeader(ColorScheme colorScheme) {
+    ImageProvider? image;
+    if (_localAvatar != null) {
+      image = FileImage(_localAvatar!);
+    } else if (_avatarUrl.isNotEmpty) {
+      image = NetworkImage(_avatarUrl);
+    }
+
     return Column(
       children: [
         Stack(
           children: [
-            CircleAvatar(
-              radius: 55,
-              backgroundColor: colorScheme.primary.withOpacity(0.1),
-              backgroundImage: _avatarUrl.isNotEmpty ? NetworkImage(_avatarUrl) : null,
-              child: _avatarUrl.isEmpty 
-                ? Icon(Icons.person, size: 55, color: colorScheme.primary)
-                : null,
+            GestureDetector(
+              onTap: _showFullImage,
+              child: Hero(
+                tag: 'profile_pic',
+                child: CircleAvatar(
+                  radius: 55,
+                  backgroundColor: colorScheme.primary.withOpacity(0.1),
+                  backgroundImage: image,
+                  child: image == null 
+                    ? Icon(Icons.person, size: 55, color: colorScheme.primary)
+                    : null,
+                ),
+              ),
             ),
             if (_isUploading)
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(color: Colors.black26, shape: BoxShape.circle),
-                  child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+                  child: const Center(child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
                 ),
               ),
             Positioned(

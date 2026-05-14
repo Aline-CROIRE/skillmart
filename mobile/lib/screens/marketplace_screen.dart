@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/project_model.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
@@ -71,7 +72,24 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   );
 
   Widget _card(Project p, BuildContext context) {
-    final isPending = p.status != 'approved';
+    bool isMine = p.sellerId == _currentUserId;
+    bool isApproved = p.status == 'approved';
+    bool needsWork = p.status == 'needs_changes';
+    
+    String badgeText = "PENDING";
+    Color badgeColor = Colors.orange;
+
+    if (isApproved) {
+      badgeText = "VERIFIED";
+      badgeColor = Colors.green;
+    } else if (needsWork) {
+      badgeText = isMine ? "REVIEW" : "PENDING";
+      badgeColor = isMine ? Theme.of(context).colorScheme.primary : Colors.orange;
+    } else if (p.status == 'under_review') {
+      badgeText = "IN REVIEW";
+      badgeColor = Colors.blue;
+    }
+
     final colorScheme = Theme.of(context).colorScheme;
 
     return InkWell(
@@ -95,27 +113,24 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                       width: double.infinity,
                       height: double.infinity,
                       child: p.thumbnailUrl.isNotEmpty 
-                        ? Image.network(
-                            p.thumbnailUrl.startsWith('http') ? p.thumbnailUrl : "https://skillmart-api.onrender.com${p.thumbnailUrl}",
+                        ? CachedNetworkImage(
+                            imageUrl: p.thumbnailUrl.startsWith('http') ? p.thumbnailUrl : "https://skillmart-api.onrender.com${p.thumbnailUrl}",
                             fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-                            },
-                            errorBuilder: (context, error, stackTrace) => Center(
+                            placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                            errorWidget: (context, url, error) => Center(
                               child: Icon(Icons.broken_image_outlined, color: colorScheme.primary.withOpacity(0.3)),
                             ),
                           )
                         : Icon(Icons.auto_stories, color: colorScheme.primary),
                     ),
                   ),
-                  if (isPending)
+                  if (p.status != 'approved')
                     Positioned(
                       top: 10, right: 10,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(10)),
-                        child: const Text("PENDING", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(10)),
+                        child: Text(badgeText, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
                       ),
                     ),
                 ],
@@ -126,7 +141,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(p.title, style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
-                isPending 
+                !isApproved 
                   ? Text("Awaiting Analytics", style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontSize: 11))
                   : Text("RWF ${p.price}", style: TextStyle(color: colorScheme.primary, fontWeight: FontWeight.w900, fontSize: 14)),
               ]),
