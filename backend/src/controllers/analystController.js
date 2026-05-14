@@ -1,28 +1,24 @@
 const Project = require('../models/Project');
 
-// Get queue of all pending projects (For any analyst to see)
 exports.getPendingQueue = async (req, res) => {
-  const projects = await Project.find({ status: 'pending' }).populate('sellerId', 'name');
-  res.json(projects);
+  try {
+    // Show projects that are fresh (pending) or being revised (needs_changes)
+    const projects = await Project.find({ 
+      status: { $in: ['pending', 'needs_changes'] } 
+    }).populate('sellerId', 'name');
+    res.json(projects);
+  } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
-// Analyst "claims" the project (Changes status to under_review)
-exports.claimProject = async (req, res) => {
-  const project = await Project.findByIdAndUpdate(
-    req.params.id,
-    { status: 'under_review', analystId: req.user._id },
-    { new: true }
-  );
-  res.json(project);
-};
-
-// Analyst submits final decision and notes
 exports.submitDecision = async (req, res) => {
-  const { status, reviewNote } = req.body; // status: 'approved', 'rejected', or 'needs_changes'
-  const project = await Project.findByIdAndUpdate(
-    req.params.id,
-    { status, reviewNote },
-    { new: true }
-  );
-  res.json({ message: "Decision updated", project });
+  try {
+    const { status, reviewNote } = req.body; 
+    // Status can be: 'approved', 'rejected', or 'needs_changes'
+    const project = await Project.findByIdAndUpdate(
+      req.params.id,
+      { status, reviewNote },
+      { new: true }
+    );
+    res.json({ message: `Decision: ${status} recorded.`, project });
+  } catch (error) { res.status(500).json({ message: error.message }); }
 };
