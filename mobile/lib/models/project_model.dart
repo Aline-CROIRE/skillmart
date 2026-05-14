@@ -3,26 +3,23 @@ class Project {
   final String title;
   final String description;
   final String category;
-  final String status;
-  final String? fileUrl;
+  final int price;
 
   Project({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.category,
-    required this.status,
-    this.fileUrl,
+    required this.id, 
+    required this.title, 
+    required this.description, 
+    required this.category, 
+    required this.price
   });
 
   factory Project.fromJson(Map<String, dynamic> json) {
     return Project(
       id: json['_id'] ?? '',
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
-      category: json['category'] ?? '',
-      status: json['status'] ?? 'pending',
-      fileUrl: json['fileUrl'],
+      title: json['title'] ?? 'Untitled Project',
+      description: json['description'] ?? 'No description provided.',
+      category: json['category'] ?? 'General',
+      price: json['price'] ?? 0,
     );
   }
 }
