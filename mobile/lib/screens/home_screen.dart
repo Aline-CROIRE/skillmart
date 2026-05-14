@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'admin_verification_screen.dart';
-import 'upload_screen.dart';
+import 'marketplace_screen.dart';
+import 'my_projects_screen.dart';
+import 'library_screen.dart';
+import 'profile_screen.dart';
+import 'analyst_queue_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -10,21 +13,22 @@ class MainMenuScreen extends StatefulWidget {
 }
 
 class _MainMenuScreenState extends State<MainMenuScreen> {
-  String _role = '';
-  String _name = '';
+  int _currentIndex = 0;
+  String _role = 'User';
+  String _userName = 'Friend';
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadUser();
+    _loadUserData();
   }
 
-  Future<void> _loadUser() async {
+  Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _role = prefs.getString('role') ?? 'User';
-      _name = prefs.getString('userName') ?? 'User';
+      _userName = prefs.getString('userName') ?? 'Friend';
       _isLoading = false;
     });
   }
@@ -33,96 +37,38 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
+    // Use Admin/Analyst View or Regular User View
+    bool isStaff = _role == 'Admin' || _role == 'Analyst';
+
+    final List<Widget> pages = isStaff 
+      ? [const AnalystQueueScreen(), const ProfileScreen()] 
+      : [const MarketplaceScreen(), const MyProjectsScreen(), const LibraryScreen(), const ProfileScreen()];
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                const Text("Quick Actions", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF002a5a))),
-                const SizedBox(height: 15),
-                _buildActionCard("Marketplace", "Browse & purchase projects", Icons.shopping_cart_outlined, const Color(0xFF0056b3), () {}),
-                
-                if (_role == 'Admin') ...[
-                  const SizedBox(height: 15),
-                  _buildActionCard("Verification Center", "Approve pending work", Icons.verified_user_outlined, Colors.redAccent, () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminVerificationScreen()));
-                  }),
-                ],
-
-                if (_role == 'Analyst' || _role == 'Admin') ...[
-                  const SizedBox(height: 15),
-                  _buildActionCard("Insights & Trends", "Platform-wide analytics", Icons.analytics_outlined, Colors.orange, () {}),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: _role == 'User' ? FloatingActionButton.extended(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UploadScreen())),
-        backgroundColor: const Color(0xFF0056b3),
-        label: const Text("Share My Work", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        icon: const Icon(Icons.add, color: Colors.white),
-      ) : null,
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(25, 60, 25, 30),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF0056b3), Color(0xFF002a5a)]),
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(radius: 30, backgroundColor: Colors.white.withAlpha(50), child: const Icon(Icons.person, color: Colors.white, size: 30)),
-          const SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Hello, $_name!", style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-              Text("Role: $_role", style: const TextStyle(color: Colors.white70, fontSize: 14)),
-            ],
-          ),
-          const Spacer(),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.logout, color: Colors.white)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionCard(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [BoxShadow(color: color.withAlpha(20), blurRadius: 10, offset: const Offset(0, 4))],
-          border: Border.all(color: color.withAlpha(30)),
-        ),
-        child: Row(
-          children: [
-            Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: color.withAlpha(20), shape: BoxShape.circle), child: Icon(icon, color: color)),
-            const SizedBox(width: 20),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF002a5a))),
-                Text(subtitle, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-              ],
-            ),
-            const Spacer(),
-            const Icon(Icons.chevron_right, color: Colors.grey),
-          ],
+      body: IndexedStack(index: _currentIndex, children: pages),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)]),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: const Color(0xFF0056b3),
+          unselectedItemColor: Colors.blueGrey[200],
+          items: isStaff ? _staffItems() : _userItems(),
         ),
       ),
     );
   }
+
+  List<BottomNavigationBarItem> _userItems() => const [
+    BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: "Explore"),
+    BottomNavigationBarItem(icon: Icon(Icons.auto_stories_outlined), label: "My Work"),
+    BottomNavigationBarItem(icon: Icon(Icons.bookmark_outline), label: "Collection"),
+    BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), label: "Wallet"),
+  ];
+
+  List<BottomNavigationBarItem> _staffItems() => const [
+    BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: "Review Hub"),
+    BottomNavigationBarItem(icon: Icon(Icons.analytics_outlined), label: "Insights"),
+  ];
 }

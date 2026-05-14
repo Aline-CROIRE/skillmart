@@ -1,140 +1,117 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/project_model.dart';
 import '../services/api_service.dart';
 
 class UploadScreen extends StatefulWidget {
-  const UploadScreen({super.key});
+  final Project? existingProject; // Optional: If passed, we are editing
+  const UploadScreen({super.key, this.existingProject});
 
   @override
   State<UploadScreen> createState() => _UploadScreenState();
 }
 
 class _UploadScreenState extends State<UploadScreen> {
-  final _titleController = TextEditingController();
-  final _descController = TextEditingController();
-  final _priceController = TextEditingController();
+  late TextEditingController _title;
+  late TextEditingController _desc;
+  late TextEditingController _price;
   String _category = 'Academic';
   PlatformFile? _pickedFile;
   bool _isLoading = false;
 
-  Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles();
-    if (result != null) {
-      setState(() => _pickedFile = result.files.first);
-    }
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill fields if we are editing
+    _title = TextEditingController(text: widget.existingProject?.title ?? "");
+    _desc = TextEditingController(text: widget.existingProject?.description ?? "");
+    _price = TextEditingController(text: widget.existingProject?.price.toString() ?? "");
+    if (widget.existingProject != null) _category = widget.existingProject!.category;
   }
 
   Future<void> _submit() async {
-    if (_pickedFile == null || _titleController.text.isEmpty || _priceController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please fill all fields!")));
-      return;
-    }
-
+    if (_title.text.isEmpty || _price.text.isEmpty) return;
+    
     setState(() => _isLoading = true);
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token') ?? '';
-      
-      String? fileUrl = await ApiService().uploadFile(_pickedFile!);
-      
-      if (fileUrl != null) {
-        bool success = await ApiService().submitProject({
-          'title': _titleController.text,
-          'description': _descController.text,
-          'category': _category,
-          'price': int.tryParse(_priceController.text) ?? 0,
-          'fileUrl': fileUrl,
-          'sellerId': 'current_user_id' // This should be handled by your JWT on backend usually
-        }, token);
-
-        if (mounted && success) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Project shared successfully!")));
-        }
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token')!;
+    
+    String? fileUrl = widget.existingProject?.fileUrl; // Keep old file by default
+    if (_pickedFile != null) {
+      fileUrl = await ApiService().uploadFile(_pickedFile!);
     }
+
+    if (fileUrl != null) {
+      final data = {
+        'title': _title.text,
+        'description': _desc.text,
+        'category': _category,
+        'price': int.parse(_price.text),
+        'fileUrl': fileUrl,
+        'sellerId': prefs.getString('userId'),
+      };
+
+      bool success;
+      if (widget.existingProject != null) {
+        // UPDATE MODE
+        success = await ApiService().updateProject(widget.existingProject!.id, data, token);
+      } else {
+        // CREATE MODE
+        success = await ApiService().submitProject(data, token);
+      }
+
+      if (mounted && success) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Submission updated!")));
+      }
+    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
+    bool isEditing = widget.existingProject != null;
     return Scaffold(
-      appBar: AppBar(title: const Text("Share My Work"), elevation: 0),
+      appBar: AppBar(title: Text(isEditing ? "Improve My Work" : "Share New Work")),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(25),
         child: Column(
           children: [
-            _input("Title of your work", _titleController, Icons.title),
-            _input("Price (RWF)", _priceController, Icons.payments_outlined, isNumber: true),
+            _input("Project Title", _title, Icons.title),
+            _input("Price (RWF)", _price, Icons.payments, isNum: true),
             _dropdown(),
-            _input("Tell us about it...", _descController, Icons.description_outlined, lines: 4),
-            const SizedBox(height: 10),
-            InkWell(
-              onTap: _pickFile,
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(15)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.cloud_upload_outlined, color: Color(0xFF0056b3)),
-                    const SizedBox(width: 15),
-                    Expanded(child: Text(_pickedFile?.name ?? "Select project file (PDF, ZIP, DOCX)")),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0056b3), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                onPressed: _isLoading ? null : _submit,
-                child: _isLoading 
-                  ? const CircularProgressIndicator(color: Colors.white) 
-                  : const Text("PUBLISH TO COMMUNITY", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ),
+            _input("Describe the value...", _desc, Icons.description, lines: 4),
+            const SizedBox(height: 20),
+            _filePicker(),
+            const SizedBox(height: 40),
+            _isLoading ? const CircularProgressIndicator() : 
+            SizedBox(width: double.infinity, height: 55, child: ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0056b3)),
+              onPressed: _submit, 
+              child: Text(isEditing ? "RESUBMIT FOR REVIEW" : "PUBLISH TO COMMUNITY", style: const TextStyle(color: Colors.white))
+            )),
           ],
         ),
       ),
     );
   }
 
-  Widget _input(String hint, TextEditingController controller, IconData icon, {int lines = 1, bool isNumber = false}) => Padding(
+  Widget _input(String h, TextEditingController c, IconData i, {int lines = 1, bool isNum = false}) => Padding(
     padding: const EdgeInsets.only(bottom: 15),
-    child: TextField(
-      controller: controller,
-      maxLines: lines,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, color: const Color(0xFF0056b3)),
-        filled: true,
-        fillColor: const Color(0xFFF1F5F9),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-      ),
-    ),
+    child: TextField(controller: c, maxLines: lines, keyboardType: isNum ? TextInputType.number : TextInputType.text, decoration: InputDecoration(hintText: h, prefixIcon: Icon(i), filled: true, fillColor: const Color(0xFFF1F5F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none))),
   );
 
   Widget _dropdown() => Padding(
     padding: const EdgeInsets.only(bottom: 15),
-    child: DropdownButtonFormField<String>(
-      value: _category,
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: const Color(0xFFF1F5F9),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-      ),
-      items: ["Academic", "Business", "Creative", "Technology", "Professional"]
-          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-          .toList(),
-      onChanged: (val) => setState(() => _category = val!),
-    ),
+    child: DropdownButtonFormField<String>(value: _category, items: ["Academic", "Business", "Creative", "Technology", "Professional"].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (v) => setState(() => _category = v!), decoration: InputDecoration(filled: true, fillColor: const Color(0xFFF1F5F9), border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none))),
+  );
+
+  Widget _filePicker() => InkWell(
+    onTap: () async {
+      final r = await FilePicker.platform.pickFiles();
+      if (r != null) setState(() => _pickedFile = r.files.first);
+    },
+    child: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: const Color(0xFFE1EFFE), borderRadius: BorderRadius.circular(15)), child: Row(children: [const Icon(Icons.cloud_upload), const SizedBox(width: 15), Expanded(child: Text(_pickedFile?.name ?? (widget.existingProject != null ? "Keep current file" : "Select File")))])),
   );
 }
