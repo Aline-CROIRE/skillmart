@@ -3,9 +3,11 @@ const router = express.Router();
 const { getPendingQueue, claimProject, submitDecision } = require('../controllers/analystController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
 
-// Standardize: Only Analysts and Admins can access this
-router.get('/queue', protect, authorize('Analyst', 'Admin'), getPendingQueue);
-router.patch('/claim/:id', protect, authorize('Analyst', 'Admin'), claimProject);
-router.patch('/review/:id', protect, authorize('Analyst', 'Admin'), submitDecision);
+// Security: Only Analysts and Admins
+router.use(protect, authorize('Analyst', 'Admin'));
+
+router.get('/queue', getPendingQueue);
+router.patch('/claim/:id', claimProject);
+router.patch('/review/:id', submitDecision); // Line 8: Now correctly finds 'submitDecision'
 
 module.exports = router;

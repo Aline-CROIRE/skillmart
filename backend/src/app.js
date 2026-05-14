@@ -15,13 +15,12 @@ app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// REGISTER ALL ROUTES
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
-app.use('/api/analyst', analystRoutes); 
+app.use('/api/analyst', analystRoutes);
 app.use('/api/market', marketRoutes);
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'UP' }));
