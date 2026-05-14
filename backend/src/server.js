@@ -1,22 +1,31 @@
+const http = require('http');
+const { Server } = require('socket.io');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const app = require('./app');
 const connectDB = require('./config/db');
+const initChat = require('./sockets/chatSocket');
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] }
+});
 
 const startServer = async () => {
   try {
-    // 1. Connect to MongoDB
     await connectDB();
+    
+    // Initialize Socket.io Chat
+    initChat(io);
 
-    // 2. Start Express API
     const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-      console.log(`🚀 SkillMart API is LIVE on port ${PORT}`);
-      console.log('✅ Mode: Human Analyst Verification (No AI)');
+    server.listen(PORT, () => {
+      console.log(`🚀 SkillMart Hybrid Server running on port ${PORT}`);
+      console.log('✅ Real-time Chat Gateway Enabled');
     });
   } catch (error) {
-    console.error('CRITICAL STARTUP ERROR:', error);
+    console.error('SERVER FATAL ERROR:', error);
     process.exit(1);
   }
 };
