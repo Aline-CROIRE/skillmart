@@ -7,8 +7,27 @@ class Project {
   final String status;
   final String reviewNote;
   final String fileUrl;
+  final String thumbnailUrl;
   final String sellerName;
   final String sellerId;
+
+  // New fields
+  final String ownerType;
+  final String ownerName;
+  final String ceoName;
+  final String linkedinUrl;
+  final String projectType;
+  final String externalLink;
+  final String proposalUrl;
+  final String rdbProofUrl;
+  final String incomeStatementUrl;
+  final String rraTaxHistoryUrl;
+  final String rraClearanceUrl;
+  final String pitchVideoUrl;
+  final bool isShareholderSeeking;
+  final int maxShareholders;
+  final int minShare;
+  final int shareValue;
 
   Project({
     required this.id,
@@ -20,7 +39,24 @@ class Project {
     required this.fileUrl,
     required this.sellerName,
     required this.sellerId,
+    this.thumbnailUrl = "",
     this.reviewNote = "",
+    this.ownerType = "Individual",
+    this.ownerName = "",
+    this.ceoName = "",
+    this.linkedinUrl = "",
+    this.projectType = "Business Idea",
+    this.externalLink = "",
+    this.proposalUrl = "",
+    this.rdbProofUrl = "",
+    this.incomeStatementUrl = "",
+    this.rraTaxHistoryUrl = "",
+    this.rraClearanceUrl = "",
+    this.pitchVideoUrl = "",
+    this.isShareholderSeeking = false,
+    this.maxShareholders = 0,
+    this.minShare = 0,
+    this.shareValue = 0,
   });
 
   factory Project.fromJson(Map<String, dynamic> json) {
@@ -44,9 +80,26 @@ class Project {
       price: (json['price'] is int) ? json['price'] : int.tryParse(json['price'].toString()) ?? 0,
       status: json['status']?.toString() ?? 'pending',
       fileUrl: json['fileUrl']?.toString() ?? '',
+      thumbnailUrl: json['thumbnailUrl']?.toString() ?? '',
       sellerName: name,
       sellerId: sid,
       reviewNote: json['reviewNote']?.toString() ?? '',
+      ownerType: json['ownerType']?.toString() ?? 'Individual',
+      ownerName: json['ownerName']?.toString() ?? '',
+      ceoName: json['ceoName']?.toString() ?? '',
+      linkedinUrl: json['linkedinUrl']?.toString() ?? '',
+      projectType: json['projectType']?.toString() ?? 'Business Idea',
+      externalLink: json['externalLink']?.toString() ?? '',
+      proposalUrl: json['proposalUrl']?.toString() ?? '',
+      rdbProofUrl: json['rdbProofUrl']?.toString() ?? '',
+      incomeStatementUrl: json['incomeStatementUrl']?.toString() ?? '',
+      rraTaxHistoryUrl: json['rraTaxHistoryUrl']?.toString() ?? '',
+      rraClearanceUrl: json['rraClearanceUrl']?.toString() ?? '',
+      pitchVideoUrl: json['pitchVideoUrl']?.toString() ?? '',
+      isShareholderSeeking: json['isShareholderSeeking'] ?? false,
+      maxShareholders: json['maxShareholders'] ?? 0,
+      minShare: json['minShare'] ?? 0,
+      shareValue: json['shareValue'] ?? 0,
     );
   }
 }

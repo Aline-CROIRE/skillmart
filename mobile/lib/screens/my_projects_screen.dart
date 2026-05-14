@@ -38,7 +38,7 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("My Creations", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [IconButton(onPressed: _fetch, icon: const Icon(Icons.refresh))],
@@ -46,31 +46,34 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _myWork.isEmpty
-              ? _buildEmpty()
+              ? _buildEmpty(context)
               : RefreshIndicator(
                   onRefresh: _fetch,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(20),
                     itemCount: _myWork.length,
-                    itemBuilder: (context, i) => _projectCard(_myWork[i]),
+                    itemBuilder: (context, i) => _projectCard(_myWork[i], context),
                   ),
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UploadScreen())).then((_) => _fetch()),
-        backgroundColor: const Color(0xFF0056b3),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         label: const Text("New Creation", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         icon: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 
-  Widget _buildEmpty() => const Center(
-    child: Text("You haven't shared anything yet. Start today!"),
+  Widget _buildEmpty(BuildContext context) => Center(
+    child: Text("You haven't shared anything yet. Start today!", style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
   );
 
-  Widget _projectCard(Project p) {
+  Widget _projectCard(Project p, BuildContext context) {
     bool needsWork = p.status == 'needs_changes';
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
+      color: colorScheme.surface,
       margin: const EdgeInsets.only(bottom: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
@@ -81,24 +84,24 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(child: Text(p.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                _statusBadge(p.status),
+                Expanded(child: Text(p.title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: colorScheme.onSurface))),
+                _statusBadge(p.status, context),
               ],
             ),
             const SizedBox(height: 5),
-            Text(p.category, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+            Text(p.category, style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontSize: 13)),
             if (needsWork) ...[
               const SizedBox(height: 15),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: Colors.orange[50], borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text("Analyst Feedback:", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
                     const SizedBox(height: 5),
-                    Text(p.reviewNote, style: const TextStyle(fontSize: 14)),
+                    Text(p.reviewNote, style: TextStyle(fontSize: 14, color: colorScheme.onSurface)),
                   ],
                 ),
               ),
@@ -112,7 +115,6 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
                   ).then((_) => _fetch()),
                   icon: const Icon(Icons.edit_document, size: 18),
                   label: const Text("FIX & RESUBMIT"),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0056b3), foregroundColor: Colors.white),
                 ),
               )
             ],
@@ -126,16 +128,16 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
     );
   }
 
-  Widget _statusBadge(String status) {
+  Widget _statusBadge(String status, BuildContext context) {
     String label = "Pending"; Color color = Colors.orange;
     if (status == 'approved') { label = "Verified"; color = Colors.green; }
     if (status == 'needs_changes') { label = "Needs Work"; color = Colors.orange; }
     if (status == 'rejected') { label = "Declined"; color = Colors.red; }
-    if (status == 'under_review') { label = "In Review"; color = Colors.blue; }
+    if (status == 'under_review') { label = "In Review"; color = Theme.of(context).colorScheme.primary; }
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: color.withAlpha(30), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
       child: Text(label.toUpperCase(), style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }

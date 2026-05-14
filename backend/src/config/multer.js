@@ -21,7 +21,17 @@ const storage = multer.diskStorage({
 
 const upload = multer({ 
   storage,
-  limits: { fileSize: 25 * 1024 * 1024 } // 25MB limit
+  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedExtensions = /pdf|jpg|jpeg|png|webp|mp4|mov|avi/;
+    const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+    
+    if (extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Error: Only Documents, Images, and Archives are allowed!'));
+    }
+  }
 });
 
 module.exports = upload;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/project_model.dart';
 import '../services/api_service.dart';
+import '../theme.dart';
 import 'project_details_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
@@ -32,16 +33,16 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: RefreshIndicator(
         onRefresh: _fetch,
         child: CustomScrollView(
           slivers: [
-            _buildHeader(),
+            _buildHeader(context),
             _isLoading 
               ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
               : _projects.isEmpty 
-                ? _buildDiscoveryEmptyState() 
+                ? _buildDiscoveryEmptyState(context) 
                 : _buildProjectGrid(),
           ],
         ),
@@ -49,13 +50,16 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     );
   }
 
-  Widget _buildHeader() => SliverAppBar(
-    expandedHeight: 120, pinned: true, elevation: 0,
-    flexibleSpace: FlexibleSpaceBar(
-      title: const Text("Explore Excellence", style: TextStyle(fontWeight: FontWeight.bold)),
-      background: Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF0056b3), Color(0xFF002a5a)]))),
-    ),
-  );
+  Widget _buildHeader(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return SliverAppBar(
+      expandedHeight: 120, pinned: true, elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        title: Text("Explore Excellence", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+        background: Container(decoration: BoxDecoration(gradient: isDark ? SkillMartTheme.darkGradient : SkillMartTheme.lightBackgroundGradient)),
+      ),
+    );
+  }
 
   Widget _buildProjectGrid() => SliverPadding(
     padding: const EdgeInsets.all(20),
@@ -63,23 +67,36 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2, mainAxisSpacing: 15, crossAxisSpacing: 15, childAspectRatio: 0.72,
       ),
-      delegate: SliverChildBuilderDelegate((context, i) => _card(_projects[i]), childCount: _projects.length),
+      delegate: SliverChildBuilderDelegate((context, i) => _card(_projects[i], context), childCount: _projects.length),
     ),
   );
 
-  Widget _card(Project p) => InkWell(
+  Widget _card(Project p, BuildContext context) => InkWell(
     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProjectDetailsScreen(project: p))).then((_) => _fetch()),
     child: Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10)]),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface, 
+        borderRadius: BorderRadius.circular(20), 
+        boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withOpacity(0.05), blurRadius: 10)]
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Container(width: double.infinity, decoration: const BoxDecoration(color: Color(0xFFF1F5F9), borderRadius: BorderRadius.vertical(top: Radius.circular(20))), child: const Icon(Icons.auto_stories, color: Color(0xFF0056b3)))),
+          Expanded(
+            child: Container(
+              width: double.infinity, 
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.05), 
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20))
+              ), 
+              child: Icon(Icons.auto_stories, color: Theme.of(context).colorScheme.primary)
+            )
+          ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(p.title, style: const TextStyle(fontWeight: FontWeight.bold), maxLines: 1),
-              Text("RWF ${p.price}", style: const TextStyle(color: Color(0xFF0056b3), fontWeight: FontWeight.w900)),
+              Text(p.title, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface), maxLines: 1),
+              Text("RWF ${p.price}", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w900)),
             ]),
           )
         ],
@@ -87,7 +104,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     ),
   );
 
-  Widget _buildDiscoveryEmptyState() => const SliverFillRemaining(
-    child: Center(child: Text("You've seen everything! Check back later.")),
+  Widget _buildDiscoveryEmptyState(BuildContext context) => SliverFillRemaining(
+    child: Center(child: Text("You've seen everything! Check back later.", style: TextStyle(color: Theme.of(context).colorScheme.onSurface))),
   );
 }

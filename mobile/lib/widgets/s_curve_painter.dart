@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 
 class SCurvePainter extends CustomPainter {
+  final Color color;
+
+  SCurvePainter({required this.color});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.blue.withAlpha(30)
+      ..color = color
       ..style = PaintingStyle.fill;
     
     Path path = Path();

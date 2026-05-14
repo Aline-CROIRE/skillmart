@@ -38,47 +38,46 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Verification Queue", style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0056b3),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _queue.isEmpty
-              ? _buildEmptyState()
+              ? _buildEmptyState(context)
               : RefreshIndicator(
                   onRefresh: _fetch,
                   child: ListView.builder(
                     padding: const EdgeInsets.all(20),
                     itemCount: _queue.length,
-                    itemBuilder: (context, i) => _buildProjectCard(_queue[i]),
+                    itemBuilder: (context, i) => _buildProjectCard(_queue[i], context),
                   ),
                 ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return const Center(
-      child: Text("No projects pending review", style: TextStyle(color: Colors.grey, fontSize: 16)),
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Text("No projects pending review", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 16)),
     );
   }
 
-  Widget _buildProjectCard(Project p) {
+  Widget _buildProjectCard(Project p, BuildContext context) {
     return Card(
+      color: Theme.of(context).colorScheme.surface,
       margin: const EdgeInsets.only(bottom: 15),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: ListTile(
         contentPadding: const EdgeInsets.all(15),
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFFE1EFFE),
-          child: Icon(Icons.pending_actions, color: Color(0xFF0056b3)),
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          child: Icon(Icons.pending_actions, color: Theme.of(context).colorScheme.primary),
         ),
-        title: Text(p.title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text("Category: ${p.category}"),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        title: Text(p.title, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+        subtitle: Text("Category: ${p.category}", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6))),
+        trailing: Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
         onTap: () {
           Navigator.push(
             context,

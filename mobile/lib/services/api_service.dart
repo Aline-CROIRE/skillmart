@@ -127,9 +127,12 @@ class ApiService {
     } catch (e) { return []; }
   }
 
-  Future<bool> adminDecision(String id, String status, String token, {String reviewNote = ""}) async {
+  Future<bool> adminDecision(String id, String status, String token, {String reviewNote = "", int? price}) async {
     try {
-      final res = await http.patch(Uri.parse('$baseUrl/analyst/review/$id'), headers: _headers(token), body: jsonEncode({'status': status, 'reviewNote': reviewNote}));
+      final body = {'status': status, 'reviewNote': reviewNote};
+      if (price != null) body['price'] = price.toString();
+      
+      final res = await http.patch(Uri.parse('$baseUrl/analyst/review/$id'), headers: _headers(token), body: jsonEncode(body));
       return res.statusCode == 200;
     } catch (e) { return false; }
   }

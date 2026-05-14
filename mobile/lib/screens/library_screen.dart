@@ -28,8 +28,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(title: const Text("My Learnings", style: TextStyle(fontWeight: FontWeight.bold))),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(title: Text("My Learnings", style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary))),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
         : _myCollection.isEmpty 
@@ -51,16 +51,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
         child: Container(
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(25),
-            boxShadow: [BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 10, offset: const Offset(0, 4))],
+            boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
           ),
           child: Row(
             children: [
               Container(
                 height: 60, width: 60,
-                decoration: BoxDecoration(color: const Color(0xFFE1EFFE), borderRadius: BorderRadius.circular(15)),
-                child: const Icon(Icons.done_all_rounded, color: Color(0xFF0056b3)),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
+                child: Icon(Icons.done_all_rounded, color: Theme.of(context).colorScheme.primary),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -72,7 +72,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+              Icon(Icons.arrow_forward_ios, size: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
             ],
           ),
         ),
@@ -85,10 +85,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.bookmark_add_outlined, size: 70, color: Colors.blueGrey[100]),
+          Icon(Icons.bookmark_add_outlined, size: 70, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2)),
           const SizedBox(height: 20),
-          const Text("Your collection is waiting", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const Text("Explore projects to add them here."),
+          Text("Your collection is waiting", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+          Text("Explore projects to add them here.", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7))),
         ],
       ),
     );

@@ -29,10 +29,13 @@ exports.claimProject = async (req, res) => {
 // 3. Analyst submits final evaluation (Matches line 8 in routes)
 exports.submitDecision = async (req, res) => {
   try {
-    const { status, reviewNote } = req.body;
+    const { status, reviewNote, price } = req.body;
+    const updateData = { status, reviewNote };
+    if (price) updateData.price = Number(price);
+
     const project = await Project.findByIdAndUpdate(
       req.params.id,
-      { status, reviewNote },
+      updateData,
       { new: true }
     );
     res.json({ message: "Evaluation recorded", project });

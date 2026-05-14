@@ -4,19 +4,14 @@ const mongoose = require('mongoose');
 
 exports.createProject = async (req, res) => {
   try {
-    const { title, description, category, price, fileUrl, sellerId } = req.body;
+    const { sellerId } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(sellerId)) {
       return res.status(400).json({ message: "Invalid user session." });
     }
 
     const project = await Project.create({
-      title,
-      description,
-      category,
-      price: Number(price) || 0,
-      fileUrl,
-      sellerId,
+      ...req.body,
       status: 'pending'
     });
 
@@ -28,16 +23,10 @@ exports.createProject = async (req, res) => {
 
 exports.updateProject = async (req, res) => {
   try {
-    const { title, description, category, price, fileUrl } = req.body;
-    
     const project = await Project.findByIdAndUpdate(
       req.params.id,
       { 
-        title, 
-        description, 
-        category, 
-        price: Number(price), 
-        fileUrl, 
+        ...req.body,
         status: 'pending', 
         reviewNote: "" 
       },

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../main.dart';
+import '../theme.dart';
 import 'auth_screen.dart';
-import 'transaction_history_screen.dart'; // IMPORT THIS
+import 'transaction_history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -12,6 +14,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String _name = "User";
+  String _email = "";
   int _balance = 0;
   bool _isLoading = true;
 
@@ -26,6 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted && profile != null) {
         setState(() {
           _name = profile['name'] ?? "Member";
+          _email = profile['email'] ?? "";
           _balance = profile['walletBalance'] ?? 0;
           _isLoading = false;
         });
@@ -37,59 +41,152 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(title: const Text("My Wallet"), elevation: 0),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: const Text("Account Management"), 
+        elevation: 0,
+        centerTitle: true,
+      ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
         : ListView(
-            padding: const EdgeInsets.all(25),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             children: [
-              _buildWalletCard(),
-              const SizedBox(height: 30),
-              // NAVIGATION FIXED HERE
+              _buildProfileHeader(colorScheme),
+              const SizedBox(height: 25),
+              
+              _sectionHeader("Finances"),
+              _buildWalletCard(isDark),
+              const SizedBox(height: 20),
               _tile("Transaction History", Icons.history, () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionHistoryScreen()));
               }),
+              
+              const SizedBox(height: 25),
+              _sectionHeader("Appearance"),
+              _buildThemeToggle(isDark, colorScheme),
+              
+              const SizedBox(height: 25),
+              _sectionHeader("Security & Preferences"),
+              _tile("Edit Profile", Icons.edit_note, () {}),
+              _tile("Change Password", Icons.lock_outline, () {}),
+              _tile("Privacy Settings", Icons.security, () {}),
+              
+              const SizedBox(height: 25),
+              _sectionHeader("Support"),
+              _tile("Help Center", Icons.help_outline, () {}),
+              _tile("About SkillMart", Icons.info_outline, () {}),
+              
+              const SizedBox(height: 30),
               _tile("Logout", Icons.logout, _handleLogout, color: Colors.red),
+              const SizedBox(height: 50),
             ],
           ),
     );
   }
 
-  Widget _buildWalletCard() {
-    return Container(
-      width: double.infinity, padding: const EdgeInsets.all(30),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF0056b3), Color(0xFF002a5a)]),
-        borderRadius: BorderRadius.circular(30),
+  Widget _buildProfileHeader(ColorScheme colorScheme) {
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 50,
+          backgroundColor: colorScheme.primary.withOpacity(0.1),
+          child: Icon(Icons.person, size: 50, color: colorScheme.primary),
+        ),
+        const SizedBox(height: 15),
+        Text(_name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+        Text(_email, style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5))),
+      ],
+    );
+  }
+
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 5, bottom: 10),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 12, 
+          fontWeight: FontWeight.bold, 
+          color: Theme.of(context).colorScheme.primary,
+          letterSpacing: 1.2
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Widget _buildThemeToggle(bool isDark, ColorScheme colorScheme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: SwitchListTile(
+        title: const Text("Dark Mode", style: TextStyle(fontWeight: FontWeight.bold)),
+        secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode, color: colorScheme.primary),
+        value: isDark,
+        onChanged: (val) {
+          SkillMartApp.of(context).toggleTheme();
+        },
+      ),
+    );
+  }
+
+  Widget _buildWalletCard(bool isDark) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity, padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.primary.withOpacity(0.1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text("Available Balance", style: TextStyle(color: Colors.white70)),
-          Text("RWF $_balance", style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 20),
-          ElevatedButton(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Wallet Balance", style: TextStyle(color: colorScheme.onSurface.withOpacity(0.6), fontSize: 13)),
+              const SizedBox(height: 5),
+              Text("RWF $_balance", style: TextStyle(color: colorScheme.onSurface, fontSize: 24, fontWeight: FontWeight.w900)),
+            ],
+          ),
+          IconButton(
             onPressed: () async {
                final prefs = await SharedPreferences.getInstance();
                await ApiService().addFunds(100000, prefs.getString('token')!);
-               _load(); // Refresh balance
+               _load(); 
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF0056b3)),
-            child: const Text("ADD RWF 100,000"),
+            icon: Icon(Icons.add_circle, color: colorScheme.primary, size: 40),
           )
         ],
       ),
     );
   }
 
-  Widget _tile(String t, IconData i, VoidCallback onTap, {Color? color}) => ListTile(
-    onTap: onTap,
-    leading: Icon(i, color: color ?? const Color(0xFF002a5a)),
-    title: Text(t, style: TextStyle(color: color ?? const Color(0xFF002a5a), fontWeight: FontWeight.bold)),
-    trailing: const Icon(Icons.chevron_right),
-  );
+  Widget _tile(String t, IconData i, VoidCallback onTap, {Color? color}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: ListTile(
+          onTap: onTap,
+          leading: Icon(i, color: color ?? colorScheme.primary),
+          title: Text(t, style: TextStyle(color: color ?? colorScheme.onSurface, fontWeight: FontWeight.w600)),
+          trailing: const Icon(Icons.chevron_right, size: 20),
+        ),
+      ),
+    );
+  }
 
   void _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();

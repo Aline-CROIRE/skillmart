@@ -47,13 +47,20 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: pages),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)]),
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).brightness == Brightness.dark ? Colors.black54 : Colors.black12, 
+              blurRadius: 10
+            )
+          ]
+        ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) => setState(() => _currentIndex = index),
           type: BottomNavigationBarType.fixed,
-          selectedItemColor: const Color(0xFF0056b3),
-          unselectedItemColor: Colors.blueGrey[200],
+          selectedItemColor: Theme.of(context).colorScheme.primary,
+          unselectedItemColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
           items: isStaff ? _staffItems() : _userItems(),
         ),
       ),

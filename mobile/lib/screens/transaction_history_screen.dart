@@ -32,22 +32,21 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: const Text("Account Activity"), elevation: 0),
       body: _loading 
         ? const Center(child: CircularProgressIndicator())
         : _history.isEmpty
-          ? const Center(child: Text("No transactions found yet."))
+          ? Center(child: Text("No transactions found yet.", style: TextStyle(color: Theme.of(context).colorScheme.onSurface)))
           : ListView.builder(
               padding: const EdgeInsets.all(20),
               itemCount: _history.length,
-              itemBuilder: (context, i) => _historyCard(_history[i]),
+              itemBuilder: (context, i) => _historyCard(_history[i], context),
             ),
     );
   }
 
-  Widget _historyCard(dynamic tx) {
-    // Safety check: if project or buyer is null (deleted), use fallback text
+  Widget _historyCard(dynamic tx, BuildContext context) {
     String projectTitle = tx['project']?['title'] ?? "Deleted Resource";
     String otherParty = "";
     
@@ -62,14 +61,14 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white, 
+        color: Theme.of(context).colorScheme.surface, 
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 5)],
+        boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withOpacity(0.05), blurRadius: 5)],
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: isPurchase ? Colors.red[50] : Colors.green[50],
+            backgroundColor: isPurchase ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
             child: Icon(
               isPurchase ? Icons.arrow_upward : Icons.arrow_downward,
               color: isPurchase ? Colors.red : Colors.green, size: 18,
@@ -80,8 +79,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(projectTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(otherParty, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(projectTitle, style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+                Text(otherParty, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 12)),
               ],
             ),
           ),

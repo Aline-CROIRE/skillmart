@@ -5,9 +5,32 @@ const projectSchema = new mongoose.Schema({
   description: { type: String, required: true },
   price: { type: Number, default: 0 },
   category: { type: String, required: true },
-  fileUrl: { type: String, required: true },
+  fileUrl: { type: String },
+  thumbnailUrl: { type: String },
   sellerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   
+  // Ownership details
+  ownerType: { type: String, enum: ['Individual', 'Company'], default: 'Individual' },
+  ownerName: { type: String },
+  ceoName: { type: String },
+  linkedinUrl: { type: String },
+
+  // Project Type details
+  projectType: { type: String, enum: ['Business Idea', 'Investment Seeking', 'Operational'], default: 'Business Idea' },
+  externalLink: { type: String },
+  proposalUrl: { type: String },
+  rdbProofUrl: { type: String },
+  incomeStatementUrl: { type: String },
+  rraTaxHistoryUrl: { type: String },
+  rraClearanceUrl: { type: String },
+  pitchVideoUrl: { type: String },
+
+  // Shareholder seeking details
+  isShareholderSeeking: { type: Boolean, default: false },
+  maxShareholders: { type: Number },
+  minShare: { type: Number },
+  shareValue: { type: Number },
+
   // Review Pipeline
   status: { 
     type: String, 
