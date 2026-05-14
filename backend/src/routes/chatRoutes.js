@@ -1,20 +1,11 @@
-/**
- * @openapi
- * /api/chat/{conversationId}:
- *   get:
- *     summary: Retrieve message history
- *     tags: [Chat]
- *     security: [{ bearerAuth: [] }]
- *     parameters:
- *       - in: path
- *         name: conversationId
- *         required: true
- *         schema: { type: string }
- *     responses:
- *       200:
- *         description: List of messages
- */
-router.get('/:conversationId', protect, async (req, res) => {
-  const messages = await Message.find({ conversationId: req.params.conversationId });
-  res.json(messages);
-});
+const express = require('express');
+const router = express.Router();
+const { accessConversation, getMyConversations, getMessages } = require('../controllers/chatController');
+const { protect } = require('../middlewares/authMiddleware');
+
+// Base path is /api/chat
+router.post('/', protect, accessConversation); // Starts a chat
+router.get('/', protect, getMyConversations);  // Lists my chats
+router.get('/:chatId', protect, getMessages);   // Gets message history
+
+module.exports = router;

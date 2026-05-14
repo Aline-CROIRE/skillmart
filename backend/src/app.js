@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const analystRoutes = require('./routes/analystRoutes');
 const marketRoutes = require('./routes/marketRoutes');
+const chatRoutes = require('./routes/chatRoutes'); // NEW
 
 const app = express();
 
@@ -17,11 +18,12 @@ app.use(express.json());
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// REGISTER ROUTES
+// REGISTER ALL ROUTES
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/analyst', analystRoutes);
-app.use('/api/market', marketRoutes); 
+app.use('/api/market', marketRoutes);
+app.use('/api/chat', chatRoutes); // <--- FIXED: This solves the 404
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'UP' }));
 app.use(errorHandler);
