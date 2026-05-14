@@ -12,19 +12,22 @@ const marketRoutes = require('./routes/marketRoutes');
 
 const app = express();
 
-app.use(helmet({ crossOriginResourcePolicy: false }));
+// FIX: Configure Helmet to allow cross-origin resource sharing (for file downloads)
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(cors());
 app.use(express.json());
 
-// FOOLPROOF STATIC PATH: Uses the root of the project
-const rootDir = process.cwd();
-const uploadsDir = path.join(rootDir, 'uploads');
-
-// Ensure the folder exists so the server doesn't throw a hidden error
+// STANDARDIZED PATH: Create 'uploads' folder inside 'backend' root
+const uploadsDir = path.join(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+// SERVE STATIC FILES
 app.use('/uploads', express.static(uploadsDir));
 
 // Routes
