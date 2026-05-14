@@ -1,7 +1,29 @@
 const Project = require('../models/Project');
-const mongoose = require('mongoose');
+const User = require('../models/User');
 
-// 1. CREATE NEW
+exports.getAllProjects = async (req, res) => {
+  try {
+    const userId = req.query.userId;
+    let filter = { status: 'approved' };
+
+    // If a user is logged in, hide projects they already own
+    if (userId && userId !== 'null') {
+      const user = await User.findById(userId);
+      if (user) {
+        filter._id = { $nin: user.purchasedProjects };
+      }
+    }
+
+    const projects = await Project.find(filter)
+      .populate('sellerId', 'name')
+      .sort({ createdAt: -1 });
+      
+    res.json(projects);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 exports.createProject = async (req, res) => {
   try {
     const project = await Project.create({ ...req.body, status: 'pending' });
@@ -9,32 +31,6 @@ exports.createProject = async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
-// 2. UPDATE EXISTING (Resubmission)
-exports.updateProject = async (req, res) => {
-  try {
-    const { title, description, category, price, fileUrl } = req.body;
-    const project = await Project.findByIdAndUpdate(
-      req.params.id,
-      { 
-        title, description, category, price, fileUrl, 
-        status: 'pending', // Reset to pending for Analyst to see
-        reviewNote: ""     // Clear old feedback
-      },
-      { new: true }
-    );
-    res.json({ message: "Work resubmitted successfully", project });
-  } catch (error) { res.status(500).json({ message: error.message }); }
-};
-
-// 3. MARKETPLACE VIEW
-exports.getAllProjects = async (req, res) => {
-  try {
-    const projects = await Project.find({ status: 'approved' }).populate('sellerId', 'name');
-    res.json(projects);
-  } catch (error) { res.status(500).json({ message: error.message }); }
-};
-
-// 4. SELLER DASHBOARD
 exports.getSellerProjects = async (req, res) => {
   try {
     const projects = await Project.find({ sellerId: req.params.sellerId });
