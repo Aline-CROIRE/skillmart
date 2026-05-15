@@ -122,9 +122,15 @@ exports.sendEmailVerification = async (req, res) => {
     user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
 
-    const sent = await sendVerificationEmail(user.email, user.name, code);
-    if (!sent) {
-      return res.status(500).json({ message: 'Failed to send verification email' });
+    const result = await sendVerificationEmail(user.email, user.name, code);
+    if (!result.ok) {
+      const hint = process.env.RESEND_API_KEY
+        ? ''
+        : ' Set RESEND_API_KEY on the server for reliable delivery from cloud hosting.';
+      return res.status(500).json({
+        message: `Failed to send verification email.${hint}`,
+        detail: process.env.NODE_ENV === 'production' ? undefined : result.error,
+      });
     }
 
     res.json({ message: 'Verification code sent to your email' });

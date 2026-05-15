@@ -1,27 +1,69 @@
 const nodemailer = require('nodemailer');
 
+const gmailUser = process.env.GMAIL_USER || 'skillmart13@gmail.com';
+const gmailPass = process.env.GMAIL_APP_PASSWORD || 'fncu ywoh wjiy lwvj';
+
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: false,
+  requireTLS: true,
   auth: {
-    user: 'skillmart13@gmail.com',
-    pass: 'fncu ywoh wjiy lwvj' 
-  }
+    user: gmailUser,
+    pass: gmailPass,
+  },
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 20000,
 });
 
+async function sendViaResend(to, subject, text) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+
+  const from = process.env.RESEND_FROM || 'SkillMart <onboarding@resend.dev>';
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from, to: [to], subject, text }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Resend error (${response.status}): ${body}`);
+  }
+
+  return true;
+}
+
+async function sendMail(to, subject, text) {
+  if (process.env.RESEND_API_KEY) {
+    return sendViaResend(to, subject, text);
+  }
+
+  await transporter.sendMail({
+    from: gmailUser,
+    to,
+    subject,
+    text,
+  });
+  return true;
+}
+
 exports.sendVerificationEmail = async (userEmail, userName, code) => {
+  const subject = 'Verify your SkillMart email';
+  const text = `Hello ${userName},\n\nYour SkillMart verification code is: ${code}\n\nThis code expires in 15 minutes. If you did not request this, you can ignore this email.\n\nBest regards,\nThe SkillMart Team`;
+
   try {
-    const mailOptions = {
-      from: 'skillmart13@gmail.com',
-      to: userEmail,
-      subject: 'Verify your SkillMart email',
-      text: `Hello ${userName},\n\nYour SkillMart verification code is: ${code}\n\nThis code expires in 15 minutes. If you did not request this, you can ignore this email.\n\nBest regards,\nThe SkillMart Team`,
-    };
-    await transporter.sendMail(mailOptions);
+    await sendMail(userEmail, subject, text);
     console.log(`Verification email sent to ${userEmail}`);
-    return true;
+    return { ok: true };
   } catch (error) {
     console.error('Error sending verification email:', error);
-    return false;
+    return { ok: false, error: error.message || 'Unknown email error' };
   }
 };
 
@@ -43,14 +85,7 @@ exports.sendNotificationEmail = async (userEmail, projectName, status) => {
 
     if (!subject) return;
 
-    const mailOptions = {
-      from: 'skillmart13@gmail.com',
-      to: userEmail,
-      subject: subject,
-      text: text
-    };
-
-    await transporter.sendMail(mailOptions);
+    await sendMail(userEmail, subject, text);
     console.log(`Notification email (${status}) sent to ${userEmail}`);
   } catch (error) {
     console.error('Error sending email:', error);

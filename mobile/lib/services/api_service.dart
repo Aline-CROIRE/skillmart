@@ -3,10 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:file_picker/file_picker.dart';
+import '../config/api_config.dart';
 import '../models/project_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://skillmart-api.onrender.com/api';
+  static String get baseUrl => ApiConfig.baseUrl;
 
   Map<String, String> _headers(String? token) => {
     'Content-Type': 'application/json',
@@ -60,25 +61,46 @@ class ApiService {
     throw data['message'] ?? 'Failed to update profile';
   }
 
+  Map<String, dynamic> _parseJsonBody(String body) {
+    if (body.isEmpty) return {};
+    return jsonDecode(body) as Map<String, dynamic>;
+  }
+
+  String _errorMessage(Map<String, dynamic> data, String fallback) {
+    final detail = data['detail'];
+    if (detail is String && detail.isNotEmpty) {
+      return '${data['message'] ?? fallback}\n$detail';
+    }
+    return data['message']?.toString() ?? fallback;
+  }
+
   Future<String> sendEmailVerification(String token) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/verify-email/send'),
-      headers: _headers(token),
-    );
-    final data = jsonDecode(res.body);
-    if (res.statusCode == 200) return data['message'] ?? 'Verification code sent';
-    throw data['message'] ?? 'Failed to send verification code';
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/auth/verify-email/send'),
+          headers: _headers(token),
+        )
+        .timeout(const Duration(seconds: 35));
+
+    final data = _parseJsonBody(res.body);
+    if (res.statusCode == 200) {
+      return data['message']?.toString() ?? 'Verification code sent';
+    }
+    throw _errorMessage(data, 'Failed to send verification code (${res.statusCode})');
   }
 
   Future<Map<String, dynamic>> verifyEmail(String token, String code) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/verify-email'),
-      headers: _headers(token),
-      body: jsonEncode({'code': code}),
-    );
-    final data = jsonDecode(res.body);
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/auth/verify-email'),
+          headers: _headers(token),
+          body: jsonEncode({'code': code}),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    final data = _parseJsonBody(res.body);
     if (res.statusCode == 200) return data;
-    throw data['message'] ?? 'Verification failed';
+    throw _errorMessage(data, 'Verification failed');
   }
 
   Future<Map<String, dynamic>?> addFunds(int amount, String token) async {
