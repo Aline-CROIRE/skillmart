@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'analyst_audit_screen.dart';
 import '../models/project_model.dart';
 import '../services/api_service.dart';
 
@@ -18,6 +19,8 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   bool _isProcessing = false;
   bool _isBookmarked = false;
   String _currentUserId = "";
+  String _userRole = "User";
+
 
   @override
   void initState() { super.initState(); _loadIdentity(); }
@@ -25,7 +28,11 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   void _loadIdentity() async {
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getString('userId') ?? "";
-    setState(() => _currentUserId = uid);
+    final role = prefs.getString('role') ?? "User";
+    setState(() {
+      _currentUserId = uid;
+      _userRole = role;
+    });
     
     // Check if bookmarked
     final profile = await ApiService().getProfile(prefs.getString('token') ?? "");
@@ -233,6 +240,25 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   }
 
   Widget _buildFooter(bool isMyProject, bool isApproved, ColorScheme colorScheme) {
+    final bool isStaff = _userRole == 'Admin' || _userRole == 'Analyst';
+
+    // Staff view takes priority for auditing
+    if (isStaff) {
+      return _footerContainer(
+        colorScheme,
+        child: SizedBox(
+          width: double.infinity,
+          height: 55,
+          child: ElevatedButton.icon(
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AnalystAuditScreen(project: widget.project))),
+            icon: const Icon(Icons.fact_check, color: Colors.white),
+            label: const Text("AUDIT PROJECT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+          ),
+        ),
+      );
+    }
+
     // If it's my project, I should always be able to open the document
     if (isMyProject) {
       return _footerContainer(

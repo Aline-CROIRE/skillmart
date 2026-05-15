@@ -41,7 +41,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
     bool isStaff = _role == 'Admin' || _role == 'Analyst';
 
     final List<Widget> pages = isStaff 
-      ? [const AnalystQueueScreen(), const ProfileScreen()] 
+      ? [const MarketplaceScreen(), const AnalystQueueScreen(), const ProfileScreen()] 
       : [const MarketplaceScreen(), const MyProjectsScreen(), const LibraryScreen(), const ProfileScreen()];
 
     return Scaffold(
@@ -75,6 +75,7 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   ];
 
   List<BottomNavigationBarItem> _staffItems() => const [
+    BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: "Explore"),
     BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: "Review Hub"),
     BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Account"),
   ];

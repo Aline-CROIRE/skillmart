@@ -43,7 +43,7 @@ exports.submitDecision = async (req, res) => {
       req.params.id,
       updateData,
       { new: true }
-    ).populate('watchers', 'email').populate('sellerId', 'email');
+    ).populate('watchers', 'email fcmToken').populate('sellerId', 'email fcmToken');
 
     // Notify Bookmarkers
     if (project.watchers && project.watchers.length > 0) {
