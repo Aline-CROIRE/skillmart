@@ -1,5 +1,7 @@
 const Project = require('../models/Project');
 const Analysis = require('../models/Analysis');
+const { sendNotificationEmail } = require('../services/emailService');
+const { sendPushNotification } = require('../services/notificationService');
 
 // Get all projects waiting for review
 exports.getReviewQueue = async (req, res, next) => {
@@ -26,7 +28,34 @@ exports.approveOrReject = async (req, res, next) => {
       req.params.id, 
       { status }, 
       { new: true }
-    );
+    ).populate('watchers', 'email fcmToken').populate('sellerId', 'email fcmToken');
+
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    // Notify Bookmarkers
+    if (project.watchers && project.watchers.length > 0) {
+      for (const user of project.watchers) {
+        if (user.email) sendNotificationEmail(user.email, project.title, status);
+        if (user.fcmToken) {
+          const pushTitle = status === 'approved' ? 'Expert Review Complete!' : 'Project Update';
+          const pushBody = status === 'approved' 
+            ? `Analytics for "${project.title}" are now available.` 
+            : `Project "${project.title}" was not approved at this time.`;
+          sendPushNotification(user.fcmToken, pushTitle, pushBody);
+        }
+      }
+      project.watchers = [];
+      await project.save();
+    }
+
+    // Notify Owner
+    if (project.sellerId) {
+      if (project.sellerId.email) sendNotificationEmail(project.sellerId.email, project.title, status);
+      if (project.sellerId.fcmToken) {
+        sendPushNotification(project.sellerId.fcmToken, 'Status Update', `Your project "${project.title}" has been ${status}.`);
+      }
+    }
+
     res.json({ message: `Project ${status} successfully`, project });
   } catch (error) { next(error); }
 };

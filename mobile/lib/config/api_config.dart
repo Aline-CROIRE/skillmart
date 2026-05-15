@@ -10,7 +10,8 @@ class ApiConfig {
   static String get baseUrl {
     const fromEnv = String.fromEnvironment('API_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
-    if (kDebugMode) return defaultDevLanUrl;
+    
+    // Forced to use Hosted Backend instead of Local
     return productionUrl;
   }
 }

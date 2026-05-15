@@ -1,6 +1,7 @@
 const Project = require('../models/Project');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const { sendSubmissionConfirmation } = require('../services/emailService');
 
 exports.createProject = async (req, res) => {
   try {
@@ -14,6 +15,14 @@ exports.createProject = async (req, res) => {
       ...req.body,
       status: 'pending'
     });
+
+    // Notify seller
+    const user = await User.findById(sellerId);
+    if (user && user.email) {
+      sendSubmissionConfirmation(user.email, user.name, project.title).catch(err => 
+        console.error('Submission email failed:', err)
+      );
+    }
 
     res.status(201).json(project);
   } catch (error) {

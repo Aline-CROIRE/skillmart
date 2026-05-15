@@ -1,5 +1,4 @@
 const Project = require('../models/Project');
-const { sendApprovalEmail } = require('../services/emailService');
 
 // 1. Get all projects waiting for an expert
 exports.getPendingQueue = async (req, res) => {

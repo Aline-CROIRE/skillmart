@@ -1,21 +1,26 @@
 const nodemailer = require('nodemailer');
 
-const gmailUser = process.env.GMAIL_USER || 'skillmart13@gmail.com';
-const gmailPass = process.env.GMAIL_APP_PASSWORD || 'fncu ywoh wjiy lwvj';
+const gmailUser = process.env.GMAIL_USER;
+const gmailPass = process.env.GMAIL_APP_PASSWORD;
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT || 587),
-  secure: false,
-  requireTLS: true,
-  auth: {
-    user: gmailUser,
-    pass: gmailPass,
-  },
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 20000,
-});
+let transporter = null;
+if (gmailUser && gmailPass) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: false,
+    requireTLS: true,
+    auth: {
+      user: gmailUser,
+      pass: gmailPass,
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
+  });
+} else {
+  console.warn('SMTP credentials (GMAIL_USER, GMAIL_APP_PASSWORD) missing. SMTP delivery disabled.');
+}
 
 async function sendViaResend(to, subject, text) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -44,6 +49,10 @@ async function sendMail(to, subject, text) {
     return sendViaResend(to, subject, text);
   }
 
+  if (!transporter) {
+    throw new Error('Email service not configured (Missing SMTP or Resend credentials)');
+  }
+
   await transporter.sendMail({
     from: gmailUser,
     to,
@@ -52,6 +61,20 @@ async function sendMail(to, subject, text) {
   });
   return true;
 }
+
+exports.sendSubmissionConfirmation = async (userEmail, userName, projectName) => {
+  const subject = `Submission Received: ${projectName}`;
+  const text = `Hello ${userName},\n\nWe have successfully received your project submission for "${projectName}".\n\nAn expert analyst will review your project shortly. You will receive an email and push notification once the evaluation is complete.\n\nThank you for choosing SkillMart.\n\nBest regards,\nThe SkillMart Team`;
+
+  try {
+    await sendMail(userEmail, subject, text);
+    console.log(`Submission confirmation sent to ${userEmail}`);
+    return { ok: true };
+  } catch (error) {
+    console.error('Error sending submission confirmation:', error);
+    return { ok: false };
+  }
+};
 
 exports.sendVerificationEmail = async (userEmail, userName, code) => {
   const subject = 'Verify your SkillMart email';
