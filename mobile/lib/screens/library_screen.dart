@@ -25,16 +25,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final token = prefs.getString('token') ?? '';
     
     final profile = await _api.getProfile(token);
-    if (mounted && profile != null) {
-      setState(() {
-        if (profile['purchasedProjects'] != null) {
-          _purchased = (profile['purchasedProjects'] as List).map((p) => Project.fromJson(p)).toList();
-        }
-        if (profile['bookmarkedProjects'] != null) {
-          _bookmarked = (profile['bookmarkedProjects'] as List).map((p) => Project.fromJson(p)).toList();
-        }
-        _isLoading = false;
-      });
+    if (mounted) {
+      if (profile != null) {
+        setState(() {
+          if (profile['purchasedProjects'] != null) {
+            _purchased = (profile['purchasedProjects'] as List).map((p) => Project.fromJson(p)).toList();
+          }
+          if (profile['bookmarkedProjects'] != null) {
+            _bookmarked = (profile['bookmarkedProjects'] as List).map((p) => Project.fromJson(p)).toList();
+          }
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

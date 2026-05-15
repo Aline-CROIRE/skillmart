@@ -27,9 +27,6 @@ exports.loginUser = async (req, res) => {
     const { email, password, fcmToken } = req.body;
     const user = await User.findOne({ email });
     if (user && (await user.matchPassword(password))) {
-      if (!user.isVerified) {
-        return res.status(401).json({ message: "Please verify your email before logging in." });
-      }
       if (fcmToken) {
         user.fcmToken = fcmToken;
         await user.save();

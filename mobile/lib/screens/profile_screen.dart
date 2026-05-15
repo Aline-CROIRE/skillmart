@@ -26,6 +26,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _phoneNumber = "";
   String _bio = "";
 
+  bool _isVerified = true;
+
   @override
   void initState() { super.initState(); _load(); }
 
@@ -34,16 +36,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
       final profile = await ApiService().getProfile(token);
-      if (mounted && profile != null) {
-        setState(() {
-          _name = profile['name'] ?? "Member";
-          _email = profile['email'] ?? "";
-          _avatarUrl = profile['avatar'] ?? "";
-          _balance = profile['walletBalance'] ?? 0;
-          _phoneNumber = profile['phoneNumber'] ?? "";
-          _bio = profile['bio'] ?? "";
-          _isLoading = false;
-        });
+      if (mounted) {
+        if (profile != null) {
+          setState(() {
+            _name = profile['name'] ?? "Member";
+            _email = profile['email'] ?? "";
+            _avatarUrl = profile['avatar'] ?? "";
+            _balance = profile['walletBalance'] ?? 0;
+            _phoneNumber = profile['phoneNumber'] ?? "";
+            _bio = profile['bio'] ?? "";
+            _isVerified = profile['isVerified'] ?? false;
+            _isLoading = false;
+          });
+        } else {
+          setState(() => _isLoading = false);
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
@@ -140,7 +147,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token') ?? '';
     
-    final response = await ApiService().updateAvatar(pickedFile, token);
+    final response = await ApiService().updateProfile(token: token, avatarFile: pickedFile);
     if (mounted) {
       setState(() {
         _isUploading = false;
@@ -268,7 +275,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 15),
         Text(_name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
-        Text(_email, style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5))),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_email, style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5))),
+            if (!_isVerified) ...[
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () async {
+                   final res = await ApiService().resendVerification(_email);
+                   if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res?['message'] ?? "Sent"), backgroundColor: Colors.blue));
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red, width: 0.5)),
+                  child: const Text("VERIFY NOW", style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ]
+          ],
+        ),
       ],
     );
   }

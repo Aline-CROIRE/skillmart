@@ -16,6 +16,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   final ApiService _api = ApiService();
   List<Project> _projects = [];
   bool _isLoading = true;
+  String _currentUserId = "";
 
   @override
   void initState() { super.initState(); _fetch(); }
@@ -23,11 +24,15 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   Future<void> _fetch() async {
     setState(() => _isLoading = true);
     final prefs = await SharedPreferences.getInstance();
-    final uid = prefs.getString('userId'); 
+    final uid = prefs.getString('userId') ?? ""; 
     
     final data = await _api.getAllProjects(userId: uid);
     
-    if (mounted) setState(() { _projects = data; _isLoading = false; });
+    if (mounted) setState(() { 
+      _projects = data; 
+      _currentUserId = uid;
+      _isLoading = false; 
+    });
   }
 
   @override

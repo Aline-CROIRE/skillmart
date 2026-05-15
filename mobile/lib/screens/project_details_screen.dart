@@ -93,19 +93,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     }
   }
 
-  void _handleWatch() async {
-    setState(() => _isProcessing = true);
-    final prefs = await SharedPreferences.getInstance();
-    final success = await ApiService().watchProject(widget.project.id, prefs.getString('token')!);
-    if (mounted) {
-      setState(() => _isProcessing = false);
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("We will notify you when approved!"), backgroundColor: Colors.green));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Action failed."), backgroundColor: Colors.red));
-      }
-    }
-  }
+
 
   Future<void> _transferProject() async {
     final TextEditingController emailController = TextEditingController();
@@ -308,8 +296,10 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             Expanded(child: Text("Awaiting Analyst Audit", style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontWeight: FontWeight.bold))),
             const SizedBox(width: 10),
             ElevatedButton(
-              onPressed: _isProcessing ? null : _handleWatch,
-              child: _isProcessing ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Text("NOTIFY ME"),
+              onPressed: _isProcessing ? null : _toggleBookmark,
+              child: _isProcessing 
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
+                : Text(_isBookmarked ? "WATCHING" : "NOTIFY ME"),
             ),
           ],
         ),
