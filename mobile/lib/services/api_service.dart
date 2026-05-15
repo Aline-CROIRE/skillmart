@@ -261,4 +261,65 @@ class ApiService {
     if (res.statusCode == 200) return data['message'] ?? 'Password reset successfully';
     throw data['message'] ?? 'Failed to reset password';
   }
+
+  Future<Map<String, dynamic>> manageAnalyst(String email, String action, String token) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/admin/manage-analyst'),
+      headers: _headers(token),
+      body: jsonEncode({'email': email, 'action': action}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) return data;
+    throw data['message'] ?? 'Failed to update user role';
+  }
+
+  Future<List<dynamic>> getAnalysts(String token) async {
+    final res = await http.get(Uri.parse('$baseUrl/admin/analysts'), headers: _headers(token));
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw 'Failed to load analysts';
+  }
+
+  Future<Map<String, dynamic>> createAnalyst(String name, String email, String password, String token) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/admin/create-analyst'),
+      headers: _headers(token),
+      body: jsonEncode({'name': name, 'email': email, 'password': password}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 201) return data;
+    throw data['message'] ?? 'Failed to create analyst';
+  }
+
+  Future<Map<String, dynamic>> togglePauseAnalyst(String userId, int? days, String token) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/admin/pause-analyst'),
+      headers: _headers(token),
+      body: jsonEncode({'userId': userId, 'days': days}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) return data;
+    throw data['message'] ?? 'Failed to update suspension status';
+  }
+
+  Future<Map<String, dynamic>> confirmAnalystProfile(String userId, String token) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/admin/confirm-profile'),
+      headers: _headers(token),
+      body: jsonEncode({'userId': userId}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) return data;
+    throw data['message'] ?? 'Failed to confirm analyst profile';
+  }
+
+  Future<Map<String, dynamic>?> uploadNationalId(PlatformFile file, String token) async {
+    final request = http.MultipartRequest('PATCH', Uri.parse('$baseUrl/auth/profile/national-id'));
+    request.headers.addAll({'Authorization': 'Bearer $token'});
+    request.files.add(await http.MultipartFile.fromPath('nationalId', file.path!));
+
+    final res = await request.send();
+    final resBody = await res.stream.bytesToString();
+    if (res.statusCode == 200) return jsonDecode(resBody);
+    return null;
+  }
 }

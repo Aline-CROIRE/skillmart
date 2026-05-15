@@ -19,6 +19,10 @@ const userSchema = new mongoose.Schema({
   fcmToken: { type: String },
   resetPasswordCode: { type: String, select: false },
   resetPasswordExpires: { type: Date, select: false },
+  isPaused: { type: Boolean, default: false },
+  pausedUntil: { type: Date },
+  isProfileConfirmed: { type: Boolean, default: false },
+  nationalIdUrl: { type: String },
   purchasedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
   bookmarkedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]
 }, { timestamps: true });

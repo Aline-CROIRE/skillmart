@@ -34,7 +34,13 @@ const { sendPushNotification } = require('../services/notificationService');
 // 3. Analyst submits final evaluation
 exports.submitDecision = async (req, res) => {
   try {
-    const { status, reviewNote, price } = req.body;
+    let { status, reviewNote, price } = req.body;
+    
+    // WORKFLOW: Analyst "approval" sends it to Admin for final sign-off
+    if (status === 'approved') {
+      status = 'pending_approval';
+    }
+
     const updateData = { status, reviewNote };
     if (price) updateData.price = Number(price);
 
@@ -44,46 +50,38 @@ exports.submitDecision = async (req, res) => {
       { new: true }
     ).populate('watchers', 'email fcmToken').populate('sellerId', 'email fcmToken');
 
-    // Notify Bookmarkers
-    if (project.watchers && project.watchers.length > 0) {
+    // Notify Bookmarkers only on REJECTION (Final)
+    // Approval notifications happen when Admin makes the final decision
+    if (status === 'rejected' && project.watchers && project.watchers.length > 0) {
       for (const user of project.watchers) {
-        if (user.email) {
-          sendNotificationEmail(user.email, project.title, status);
-        }
+        if (user.email) sendNotificationEmail(user.email, project.title, 'rejected');
         if (user.fcmToken) {
-          let pushTitle = ''; let pushBody = '';
-          if (status === 'approved') {
-            pushTitle = 'Expert Review Complete!';
-            pushBody = `Analytics for "${project.title}" are now available in your feed.`;
-          } else if (status === 'rejected') {
-            pushTitle = 'Project Update';
-            pushBody = `Project "${project.title}" did not meet the criteria for approval at this time.`;
-          }
-          if (pushTitle) sendPushNotification(user.fcmToken, pushTitle, pushBody);
+          sendPushNotification(
+            user.fcmToken, 
+            'Project Update', 
+            `Project "${project.title}" did not meet the criteria for approval at this time.`
+          );
         }
       }
-      // Clear watchers after notifying only if it's a final state (approved/rejected)
-      if (status === 'approved' || status === 'rejected') {
-        project.watchers = [];
-        await project.save();
+      project.watchers = [];
+      await project.save();
+    }
+
+    // Notify Owner on Analyst Progress
+    if (project.sellerId) {
+      const ownerEmail = project.sellerId.email;
+      const ownerToken = project.sellerId.fcmToken;
+
+      if (status === 'pending_approval') {
+        if (ownerEmail) sendNotificationEmail(ownerEmail, project.title, 'pending_approval');
+        if (ownerToken) sendPushNotification(ownerToken, 'Good News!', `Your project "${project.title}" has passed expert review and is awaiting final Admin approval.`);
+      } else if (status === 'needs_changes') {
+        if (ownerEmail) sendNotificationEmail(ownerEmail, project.title, 'needs_changes');
+        if (ownerToken) sendPushNotification(ownerToken, 'Action Required!', `An expert has requested a review for your project "${project.title}". Check feedback and resubmit.`);
       }
     }
 
-    // SPECIFIC: Notify Owner if review is requested
-    if (status === 'needs_changes' && project.sellerId) {
-      if (project.sellerId.email) {
-        sendNotificationEmail(project.sellerId.email, project.title, 'needs_changes');
-      }
-      if (project.sellerId.fcmToken) {
-        sendPushNotification(
-          project.sellerId.fcmToken, 
-          'Action Required!', 
-          `An expert has requested a review for your project "${project.title}". Check feedback and resubmit.`
-        );
-      }
-    }
-
-    res.json({ message: "Evaluation recorded", project });
+    res.json({ message: "Evaluation recorded. Awaiting admin final sign-off.", project });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

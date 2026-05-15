@@ -5,6 +5,8 @@ import 'my_projects_screen.dart';
 import 'library_screen.dart';
 import 'profile_screen.dart';
 import 'analyst_queue_screen.dart';
+import 'admin_verification_screen.dart';
+import 'team_management_screen.dart';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -37,12 +39,15 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
-    // Use Admin/Analyst View or Regular User View
-    bool isStaff = _role == 'Admin' || _role == 'Analyst';
-
-    final List<Widget> pages = isStaff 
-      ? [const MarketplaceScreen(), const AnalystQueueScreen(), const ProfileScreen()] 
-      : [const MarketplaceScreen(), const MyProjectsScreen(), const LibraryScreen(), const ProfileScreen()];
+    // Define Pages based on Role
+    List<Widget> pages = [];
+    if (_role == 'Admin') {
+      pages = [const AdminVerificationScreen(), const TeamManagementScreen(), const ProfileScreen()];
+    } else if (_role == 'Analyst') {
+      pages = [const MarketplaceScreen(), const AnalystQueueScreen(), const ProfileScreen()];
+    } else {
+      pages = [const MarketplaceScreen(), const MyProjectsScreen(), const LibraryScreen(), const ProfileScreen()];
+    }
 
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: pages),
@@ -61,22 +66,32 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
           type: BottomNavigationBarType.fixed,
           selectedItemColor: Theme.of(context).colorScheme.primary,
           unselectedItemColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-          items: isStaff ? _staffItems() : _userItems(),
+          items: _buildNavItems(),
         ),
       ),
     );
   }
 
-  List<BottomNavigationBarItem> _userItems() => const [
-    BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: "Explore"),
-    BottomNavigationBarItem(icon: Icon(Icons.auto_stories_outlined), label: "My Work"),
-    BottomNavigationBarItem(icon: Icon(Icons.bookmark_outline), label: "Collection"),
-    BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Account"),
-  ];
-
-  List<BottomNavigationBarItem> _staffItems() => const [
-    BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: "Explore"),
-    BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: "Review Hub"),
-    BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Account"),
-  ];
+  List<BottomNavigationBarItem> _buildNavItems() {
+    if (_role == 'Admin') {
+      return const [
+        BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: "Review Hub"),
+        BottomNavigationBarItem(icon: Icon(Icons.group_add_outlined), label: "Team"),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Account"),
+      ];
+    } else if (_role == 'Analyst') {
+      return const [
+        BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: "Explore"),
+        BottomNavigationBarItem(icon: Icon(Icons.fact_check_outlined), label: "Review Hub"),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Account"),
+      ];
+    } else {
+      return const [
+        BottomNavigationBarItem(icon: Icon(Icons.explore_outlined), label: "Explore"),
+        BottomNavigationBarItem(icon: Icon(Icons.auto_stories_outlined), label: "My Work"),
+        BottomNavigationBarItem(icon: Icon(Icons.bookmark_outline), label: "Collection"),
+        BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Account"),
+      ];
+    }
+  }
 }

@@ -5,6 +5,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const app = require('./app');
 const connectDB = require('./config/db');
+const seedAdmin = require('./config/seed');
 const initChat = require('./sockets/chatSocket');
 
 const server = http.createServer(app);
@@ -15,6 +16,7 @@ const io = new Server(server, {
 const startServer = async () => {
   try {
     await connectDB();
+    await seedAdmin();
     
     // Initialize Socket.io Chat
     initChat(io);

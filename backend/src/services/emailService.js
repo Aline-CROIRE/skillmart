@@ -165,6 +165,38 @@ exports.sendPasswordResetEmail = async (userEmail, userName, code) => {
   }
 };
 
+exports.sendAnalystCredentialsEmail = async (userEmail, userName, password) => {
+  const subject = 'Your SkillMart Analyst Credentials';
+  const text = `Hello ${userName},\n\nYou have been added as an Analyst on SkillMart.\n\nLogin Email: ${userEmail}\nTemporary Password: ${password}\n\nPlease login and complete your profile (upload ID and picture) to start working.`;
+
+  const body = `
+    <p>Hello <strong>${userName}</strong>,</p>
+    <p>Welcome to the expert team! You have been added as an <strong>Analyst</strong> on SkillMart.</p>
+    <p>Use the credentials below to login to your new account:</p>
+    <div style="background: #f1f5f9; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <p style="margin: 0;"><strong>Email:</strong> ${userEmail}</p>
+      <p style="margin: 10px 0 0 0;"><strong>Password:</strong> ${password}</p>
+    </div>
+    <p><strong>Next Steps:</strong></p>
+    <ol>
+      <li>Login with these credentials.</li>
+      <li>Verify your email address.</li>
+      <li>Upload your <strong>National ID</strong> and <strong>Profile Picture</strong>.</li>
+    </ol>
+    <p>Once your profile is confirmed by the Super Admin, you can start evaluating projects.</p>
+  `;
+  const html = getHtmlTemplate("Welcome to the Team", body, "LOGIN NOW", "https://skillmart.app/login");
+
+  try {
+    await sendMail(userEmail, subject, text, html);
+    console.log(`Analyst credentials email sent to ${userEmail}`);
+    return { ok: true };
+  } catch (error) {
+    console.error('Error sending analyst credentials email:', error);
+    return { ok: false };
+  }
+};
+
 exports.sendNotificationEmail = async (userEmail, projectName, status) => {
   try {
     let subject = '';

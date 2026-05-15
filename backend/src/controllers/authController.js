@@ -129,6 +129,20 @@ exports.updateProfileInfo = async (req, res) => {
   }
 };
 
+exports.updateNationalId = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    const user = await User.findById(req.user._id);
+    user.nationalIdUrl = req.file.path;
+    await user.save();
+
+    res.json({ message: "National ID uploaded successfully", nationalIdUrl: user.nationalIdUrl });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 exports.sendEmailVerification = async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select('+emailVerificationCode +emailVerificationExpires');

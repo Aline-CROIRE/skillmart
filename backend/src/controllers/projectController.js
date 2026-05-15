@@ -51,7 +51,7 @@ exports.updateProject = async (req, res) => {
 
 exports.getAllProjects = async (req, res) => {
   try {
-    const projects = await Project.find({ status: { $ne: 'rejected' } })
+    const projects = await Project.find({ status: 'approved' })
       .populate('sellerId', 'name')
       .sort({ createdAt: -1 });
 

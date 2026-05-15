@@ -35,7 +35,7 @@ const projectSchema = new mongoose.Schema({
   // Review Pipeline
   status: { 
     type: String, 
-    enum: ['pending', 'under_review', 'approved', 'rejected', 'needs_changes'], 
+    enum: ['pending', 'under_review', 'pending_approval', 'approved', 'rejected', 'needs_changes'], 
     default: 'pending' 
   },
   analystId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

@@ -16,21 +16,38 @@ class _AnalystQueueScreenState extends State<AnalystQueueScreen> {
   List<Project> _queue = [];
   bool _isLoading = true;
   String _name = "Analyst";
+  bool _needsVerification = false;
+  bool _needsConfirmation = false;
 
   @override
   void initState() { super.initState(); _fetch(); }
 
   Future<void> _fetch() async {
-    setState(() => _isLoading = true);
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token') ?? '';
-    final data = await _api.getAdminQueue(token);
-    if (mounted) {
-      setState(() {
-        _queue = data;
-        _name = prefs.getString('userName') ?? "Expert";
-        _isLoading = false;
-      });
+    setState(() {
+      _isLoading = true;
+      _needsVerification = false;
+      _needsConfirmation = false;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+      final data = await _api.getAdminQueue(token);
+      if (mounted) {
+        setState(() {
+          _queue = data;
+          _name = prefs.getString('userName') ?? "Expert";
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      final err = e.toString();
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          if (err.contains('verify your email')) _needsVerification = true;
+          if (err.contains('awaiting Admin confirmation')) _needsConfirmation = true;
+        });
+      }
     }
   }
 
@@ -44,18 +61,57 @@ class _AnalystQueueScreenState extends State<AnalystQueueScreen> {
           _buildStatsSection(context),
           _isLoading 
             ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
-            : _queue.isEmpty
-              ? _buildEmptyQueue(context)
-              : SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, i) => _buildEvaluationCard(_queue[i], context),
-                      childCount: _queue.length,
+            : _needsVerification || _needsConfirmation
+              ? _buildRestrictedUI(context)
+              : _queue.isEmpty
+                ? _buildEmptyQueue(context)
+                : SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) => _buildEvaluationCard(_queue[i], context),
+                        childCount: _queue.length,
+                      ),
                     ),
                   ),
-                ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRestrictedUI(BuildContext context) {
+    return SliverFillRemaining(
+      hasScrollBody: false,
+      child: Padding(
+        padding: const EdgeInsets.all(30.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock_person_outlined, size: 80, color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
+            const SizedBox(height: 20),
+            Text(
+              _needsVerification ? "Email Verification Required" : "Profile Confirmation Pending",
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _needsVerification 
+                ? "Please verify your email address to access project evaluations."
+                : "Your profile is awaiting confirmation. Ensure your National ID and Picture are uploaded in your account settings.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () {
+                // Navigate to profile tab (Index 2 in MainMenu)
+                // Since this is inside a tab, we might need a better way, but for now:
+              },
+              child: const Text("COMPLETE PROFILE"),
+            )
+          ],
+        ),
       ),
     );
   }

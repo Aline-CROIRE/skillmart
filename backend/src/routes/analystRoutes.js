@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { getPendingQueue, claimProject, submitDecision } = require('../controllers/analystController');
-const { protect, authorize } = require('../middlewares/authMiddleware');
+const { protect, authorize, isConfirmedAnalyst } = require('../middlewares/authMiddleware');
 
 // Security: Only Analysts and Admins
 router.use(protect, authorize('Analyst', 'Admin'));
 
-router.get('/queue', getPendingQueue);
-router.patch('/claim/:id', claimProject);
-router.patch('/review/:id', submitDecision); // Line 8: Now correctly finds 'submitDecision'
+// Analysts must also be confirmed by Super Admin
+router.get('/queue', isConfirmedAnalyst, getPendingQueue);
+router.patch('/claim/:id', isConfirmedAnalyst, claimProject);
+router.patch('/review/:id', isConfirmedAnalyst, submitDecision);
 
 module.exports = router;

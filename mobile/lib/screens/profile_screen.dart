@@ -1,13 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../main.dart';
 import '../theme.dart';
 import 'auth_screen.dart';
 import 'transaction_history_screen.dart';
 import 'edit_profile_screen.dart';
+import 'team_management_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,11 +17,14 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final _api = ApiService();
   String _name = "User";
   String _email = "";
   String _bio = "";
   String _avatarUrl = "";
   bool _emailVerified = false;
+  String _role = "User";
+  bool _isProfileConfirmed = false;
   int _balance = 0;
   bool _isLoading = true;
   bool _isUploading = false;
@@ -41,6 +45,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _bio = profile['bio'] ?? "";
           _avatarUrl = profile['avatar'] ?? "";
           _emailVerified = profile['emailVerified'] == true;
+          _role = prefs.getString('role') ?? 'User';
+          _isProfileConfirmed = profile['isProfileConfirmed'] == true;
           _balance = profile['walletBalance'] ?? 0;
           _isLoading = false;
         });
@@ -141,14 +147,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildProfileHeader(colorScheme),
               const SizedBox(height: 25),
               
-              _sectionHeader("Finances"),
-              _buildWalletCard(isDark),
-              const SizedBox(height: 20),
-              _tile("Transaction History", Icons.history, () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionHistoryScreen()));
-              }),
+              if (_role != 'Admin') ...[
+                _sectionHeader("Finances"),
+                _buildWalletCard(isDark),
+                const SizedBox(height: 20),
+                _tile("Transaction History", Icons.history, () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionHistoryScreen()));
+                }),
+                const SizedBox(height: 25),
+              ],
               
-              const SizedBox(height: 25),
               _sectionHeader("Appearance"),
               _buildThemeToggle(isDark, colorScheme),
               
@@ -156,6 +164,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _sectionHeader("Security & Preferences"),
               _tile("Edit Profile", Icons.edit_note, _openEditProfile),
               _tile("Change Password", Icons.lock_outline, _showChangePasswordDialog),
+              if (_role == 'Analyst')
+                _tile("Upload National ID", Icons.badge_outlined, _pickAndUploadNationalId, 
+                  subtitle: _isProfileConfirmed ? "Verified" : "Pending Confirmation"),
               _tile("Privacy Settings", Icons.security, () {}),
               
               const SizedBox(height: 25),
@@ -323,7 +334,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _tile(String t, IconData i, VoidCallback onTap, {Color? color}) {
+  Widget _tile(String t, IconData i, VoidCallback onTap, {Color? color, String? subtitle}) {
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -336,6 +347,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onTap: onTap,
           leading: Icon(i, color: color ?? colorScheme.primary),
           title: Text(t, style: TextStyle(color: color ?? colorScheme.onSurface, fontWeight: FontWeight.w600)),
+          subtitle: subtitle != null ? Text(subtitle, style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.5))) : null,
           trailing: const Icon(Icons.chevron_right, size: 20),
         ),
       ),
@@ -362,6 +374,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _bio = updated['bio'] ?? '';
         _emailVerified = updated['emailVerified'] == true;
       });
+    }
+  }
+
+  Future<void> _pickAndUploadNationalId() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result == null) return;
+
+    setState(() => _isUploading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+      final res = await _api.uploadNationalId(result.files.first, token);
+      if (res != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("ID Uploaded! Waiting for Admin confirmation."), backgroundColor: Colors.blue));
+          _load();
+        }
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
