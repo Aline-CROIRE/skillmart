@@ -8,29 +8,6 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-exports.sendVerificationEmail = async (userEmail, token) => {
-  const url = `https://skillmart-api.onrender.com/api/auth/verify/${token}`;
-  try {
-    const mailOptions = {
-      from: 'skillmart13@gmail.com',
-      to: userEmail,
-      subject: 'Verify Your SkillMart Account',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-          <h2 style="color: #3f51b5;">Welcome to SkillMart!</h2>
-          <p>Please click the button below to verify your email address and activate your account:</p>
-          <a href="${url}" style="display: inline-block; padding: 12px 24px; background-color: #3f51b5; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 10px;">Verify Email</a>
-          <p style="margin-top: 20px; color: #666; font-size: 12px;">If you didn't create an account, you can safely ignore this email.</p>
-        </div>
-      `
-    };
-    await transporter.sendMail(mailOptions);
-    console.log(`Verification email sent to ${userEmail}`);
-  } catch (error) {
-    console.error('Error sending verification email:', error);
-  }
-};
-
 exports.sendNotificationEmail = async (userEmail, projectName, status) => {
   try {
     let subject = '';

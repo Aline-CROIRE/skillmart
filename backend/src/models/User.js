@@ -14,12 +14,6 @@ const userSchema = new mongoose.Schema({
   bio: { type: String },
   avatar: { type: String },
   fcmToken: { type: String },
-  phoneNumber: { type: String },
-  newEmail: { type: String }, // For email change verification
-  isVerified: { type: Boolean, default: false },
-  verificationToken: { type: String },
-  emailHistory: [String],
-  phoneHistory: [String],
   purchasedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
   bookmarkedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]
 }, { timestamps: true });

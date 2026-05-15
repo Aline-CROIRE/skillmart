@@ -108,30 +108,3 @@ exports.getProjectById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-exports.transferProject = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { targetEmail } = req.body;
-    const currentUserId = req.user._id;
-
-    const project = await Project.findById(id);
-    if (!project) return res.status(404).json({ message: "Project not found" });
-
-    // Check ownership
-    if (project.sellerId.toString() !== currentUserId.toString()) {
-      return res.status(403).json({ message: "Only the owner can transfer this project." });
-    }
-
-    const targetUser = await User.findOne({ email: targetEmail });
-    if (!targetUser) return res.status(404).json({ message: "Recipient user not found." });
-
-    // Perform Transfer
-    project.sellerId = targetUser._id;
-    await project.save();
-
-    res.json({ message: `Project transferred successfully to ${targetEmail}` });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};

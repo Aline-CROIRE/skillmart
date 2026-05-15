@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
-const morgan = require('morgan');
 const errorHandler = require('./middlewares/errorHandler');
 
 const authRoutes = require('./routes/authRoutes');
@@ -16,7 +15,6 @@ const app = express();
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(cors());
 app.use(express.json());
-app.use(morgan('dev'));
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 

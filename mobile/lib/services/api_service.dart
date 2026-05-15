@@ -19,24 +19,16 @@ class ApiService {
       final body = {'email': email, 'password': password};
       if (fcmToken != null) body['fcmToken'] = fcmToken;
       final res = await http.post(Uri.parse('$baseUrl/auth/login'), headers: _headers(null), body: jsonEncode(body));
-      return res.statusCode == 200 ? jsonDecode(res.body) : jsonDecode(res.body);
+      return res.statusCode == 200 ? jsonDecode(res.body) : null;
     } catch (e) { return null; }
   }
 
-  Future<Map<String, dynamic>?> register(String name, String email, String password, String role, {String? fcmToken, String? phoneNumber}) async {
+  Future<Map<String, dynamic>?> register(String name, String email, String password, String role, {String? fcmToken}) async {
     try {
       final body = {'name': name, 'email': email, 'password': password, 'role': role};
       if (fcmToken != null) body['fcmToken'] = fcmToken;
-      if (phoneNumber != null) body['phoneNumber'] = phoneNumber;
       final res = await http.post(Uri.parse('$baseUrl/auth/register'), headers: _headers(null), body: jsonEncode(body));
-      return res.statusCode == 201 ? jsonDecode(res.body) : jsonDecode(res.body);
-    } catch (e) { return null; }
-  }
-
-  Future<Map<String, dynamic>?> resendVerification(String email) async {
-    try {
-      final res = await http.post(Uri.parse('$baseUrl/auth/resend-verification'), headers: _headers(null), body: jsonEncode({'email': email}));
-      return jsonDecode(res.body);
+      return res.statusCode == 201 ? jsonDecode(res.body) : null;
     } catch (e) { return null; }
   }
 
@@ -44,37 +36,6 @@ class ApiService {
     try {
       final res = await http.get(Uri.parse('$baseUrl/auth/profile'), headers: _headers(token));
       return res.statusCode == 200 ? jsonDecode(res.body) : null;
-    } catch (e) { return null; }
-  }
-
-  Future<Map<String, dynamic>?> updateProfile({
-    required String token,
-    String? name,
-    String? bio,
-    String? email,
-    String? phoneNumber,
-    PlatformFile? avatarFile
-  }) async {
-    try {
-      var request = http.MultipartRequest('PATCH', Uri.parse('$baseUrl/auth/profile'));
-      request.headers.addAll(_headers(token));
-      
-      if (name != null) request.fields['name'] = name;
-      if (bio != null) request.fields['bio'] = bio;
-      if (email != null) request.fields['email'] = email;
-      if (phoneNumber != null) request.fields['phoneNumber'] = phoneNumber;
-
-      if (avatarFile != null) {
-        if (kIsWeb && avatarFile.bytes != null) {
-          request.files.add(http.MultipartFile.fromBytes('avatar', avatarFile.bytes!, filename: avatarFile.name, contentType: MediaType('image', 'jpeg')));
-        } else if (avatarFile.path != null) {
-          request.files.add(await http.MultipartFile.fromPath('avatar', avatarFile.path!));
-        }
-      }
-
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-      return jsonDecode(response.body);
     } catch (e) { return null; }
   }
 
@@ -187,14 +148,20 @@ class ApiService {
     } catch (e) { return null; }
   }
 
-  Future<Map<String, dynamic>?> transferProject(String id, String targetEmail, String token) async {
+  Future<Map<String, dynamic>?> updateAvatar(PlatformFile file, String token) async {
     try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/projects/transfer/$id'),
-        headers: _headers(token),
-        body: jsonEncode({'targetEmail': targetEmail}),
-      );
-      return res.statusCode == 200 ? jsonDecode(res.body) : jsonDecode(res.body);
+      var request = http.MultipartRequest('PATCH', Uri.parse('$baseUrl/auth/profile'));
+      request.headers.addAll(_headers(token));
+      
+      if (kIsWeb && file.bytes != null) {
+        request.files.add(http.MultipartFile.fromBytes('avatar', file.bytes!, filename: file.name, contentType: MediaType('image', 'jpeg')));
+      } else {
+        request.files.add(await http.MultipartFile.fromPath('avatar', file.path!));
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+      return response.statusCode == 200 ? jsonDecode(response.body) : null;
     } catch (e) { return null; }
   }
 }

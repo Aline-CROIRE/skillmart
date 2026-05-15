@@ -7,7 +7,7 @@ import '../services/api_service.dart';
 
 class ProjectDetailsScreen extends StatefulWidget {
   final Project project;
-  final bool isOwned; 
+  final bool isOwned;
   const ProjectDetailsScreen({super.key, required this.project, this.isOwned = false});
 
   @override
@@ -57,23 +57,41 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   }
 
   Future<void> _openFile() async {
-    final Uri url = Uri.parse("https://skillmart-api.onrender.com${widget.project.fileUrl}");
-    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("File link error")));
+    final url = Uri.parse(widget.project.fileUrl.startsWith('http') 
+      ? widget.project.fileUrl 
+      : "https://skillmart-api.onrender.com${widget.project.fileUrl}");
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Could not open file")));
     }
   }
 
   void _confirmPurchase() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        title: Text("Unlock Access", style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
-        content: Text("Confirm RWF ${widget.project.price} for '${widget.project.title}'?", style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("CANCEL", style: TextStyle(color: Theme.of(context).colorScheme.primary))),
-          ElevatedButton(onPressed: () { Navigator.pop(context); _handlePurchase(); }, child: const Text("CONFIRM")),
-        ],
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(30),
+        decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.shopping_cart_checkout_rounded, size: 50, color: Colors.green),
+            const SizedBox(height: 20),
+            const Text("Confirm Purchase", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Text("You are about to unlock full access to \"${widget.project.title}\" for RWF ${widget.project.price}.", textAlign: TextAlign.center),
+            const SizedBox(height: 30),
+            Row(
+              children: [
+                Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL"))),
+                const SizedBox(width: 15),
+                Expanded(child: ElevatedButton(onPressed: () { Navigator.pop(context); _handlePurchase(); }, child: const Text("CONFIRM"))),
+              ],
+            )
+          ],
+        ),
       ),
     );
   }
@@ -93,47 +111,11 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     }
   }
 
-
-
-  Future<void> _transferProject() async {
-    final TextEditingController emailController = TextEditingController();
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Transfer Project"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Transfer this project to another user. This action cannot be undone."),
-            const SizedBox(height: 15),
-            TextField(controller: emailController, decoration: const InputDecoration(hintText: "Recipient's Email", border: OutlineInputBorder())),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(onPressed: () => Navigator.pop(context, emailController.text), child: const Text("Transfer")),
-        ],
-      )
-    );
-
-    if (result != null && result.isNotEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token') ?? "";
-      setState(() => _isProcessing = true);
-      final res = await ApiService().transferProject(widget.project.id, result, token);
-      if (mounted) {
-        setState(() => _isProcessing = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res?['message'] ?? "Transfer failed"), backgroundColor: res?['message']?.contains('success') == true ? Colors.green : Colors.red));
-        if (res?['message']?.contains('success') == true) Navigator.pop(context, true);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    bool isMyProject = _currentUserId == widget.project.sellerId;
-    bool isApproved = widget.project.status == 'approved';
     final colorScheme = Theme.of(context).colorScheme;
+    final bool isApproved = widget.project.status == 'approved';
+    final bool isMyProject = widget.project.sellerId == _currentUserId;
     
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -156,18 +138,18 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildThumbnail(colorScheme, !isApproved && !isMyProject),
-            const SizedBox(height: 30),
-            Text(widget.project.title, style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
-            Text("By ${widget.project.sellerName}", style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5))),
+            const SizedBox(height: 25),
+            Text(widget.project.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
             
+            // Analytics Awaiting Box
             if (!isApproved && !isMyProject) ...[
-              const SizedBox(height: 20),
               Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.orange.withOpacity(0.2))),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(15)),
                 child: Row(
                   children: [
-                    const Icon(Icons.analytics_outlined, color: Colors.orange),
+                    Icon(Icons.query_stats, color: colorScheme.primary),
                     const SizedBox(width: 15),
                     Expanded(child: Text("This project is currently undergoing expert analysis. Analytics and pricing are not yet available.", style: TextStyle(color: colorScheme.onSurface, fontSize: 13))),
                   ],
@@ -255,35 +237,15 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     if (isMyProject) {
       return _footerContainer(
         colorScheme,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton.icon(
-                onPressed: _openFile,
-                icon: const Icon(Icons.file_open, color: Colors.white),
-                label: const Text("VIEW MY SUBMISSION", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(backgroundColor: colorScheme.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 45,
-              child: OutlinedButton.icon(
-                onPressed: _transferProject,
-                icon: const Icon(Icons.send_rounded),
-                label: const Text("TRANSFER PROJECT", style: TextStyle(fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.orange,
-                  side: const BorderSide(color: Colors.orange),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
-                ),
-              ),
-            ),
-          ],
+        child: SizedBox(
+          width: double.infinity,
+          height: 55,
+          child: ElevatedButton.icon(
+            onPressed: _openFile,
+            icon: const Icon(Icons.file_open, color: Colors.white),
+            label: const Text("VIEW MY SUBMISSION", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(backgroundColor: colorScheme.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+          ),
         ),
       );
     }
@@ -295,12 +257,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
           children: [
             Expanded(child: Text("Awaiting Analyst Audit", style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontWeight: FontWeight.bold))),
             const SizedBox(width: 10),
-            ElevatedButton(
-              onPressed: _isProcessing ? null : _toggleBookmark,
-              child: _isProcessing 
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
-                : Text(_isBookmarked ? "WATCHING" : "NOTIFY ME"),
-            ),
+            const Icon(Icons.info_outline, color: Colors.grey),
           ],
         ),
       );

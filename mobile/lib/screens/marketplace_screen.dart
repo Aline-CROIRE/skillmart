@@ -24,15 +24,17 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
   Future<void> _fetch() async {
     setState(() => _isLoading = true);
     final prefs = await SharedPreferences.getInstance();
-    final uid = prefs.getString('userId') ?? ""; 
+    final uid = prefs.getString('userId') ?? "";
     
     final data = await _api.getAllProjects(userId: uid);
     
-    if (mounted) setState(() { 
-      _projects = data; 
-      _currentUserId = uid;
-      _isLoading = false; 
-    });
+    if (mounted) {
+      setState(() {
+        _projects = data;
+        _isLoading = false;
+        _currentUserId = uid;
+      });
+    }
   }
 
   @override
@@ -157,7 +159,19 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     );
   }
 
-  Widget _buildDiscoveryEmptyState(BuildContext context) => SliverFillRemaining(
-    child: Center(child: Text("You've seen everything! Check back later.", style: TextStyle(color: Theme.of(context).colorScheme.onSurface))),
-  );
+  Widget _buildDiscoveryEmptyState(BuildContext context) {
+    return SliverFillRemaining(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off_rounded, size: 80, color: Theme.of(context).colorScheme.primary.withOpacity(0.1)),
+            const SizedBox(height: 20),
+            const Text("No projects found", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text("Try searching for something else."),
+          ],
+        ),
+      ),
+    );
+  }
 }
