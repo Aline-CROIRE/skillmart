@@ -155,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 25),
               _sectionHeader("Security & Preferences"),
               _tile("Edit Profile", Icons.edit_note, _openEditProfile),
-              _tile("Change Password", Icons.lock_outline, () {}),
+              _tile("Change Password", Icons.lock_outline, _showChangePasswordDialog),
               _tile("Privacy Settings", Icons.security, () {}),
               
               const SizedBox(height: 25),
@@ -369,5 +369,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
+  }
+
+  void _showChangePasswordDialog() {
+    final oldCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    bool loading = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text("Change Password"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: oldCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Current Password")),
+              TextField(controller: newCtrl, obscureText: true, decoration: const InputDecoration(labelText: "New Password")),
+              TextField(controller: confirmCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Confirm New Password")),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+            loading ? const CircularProgressIndicator() : ElevatedButton(
+              onPressed: () async {
+                if (newCtrl.text != confirmCtrl.text) {
+                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Passwords do not match")));
+                   return;
+                }
+                setDialogState(() => loading = true);
+                try {
+                  final prefs = await SharedPreferences.getInstance();
+                  final token = prefs.getString('token') ?? '';
+                  await ApiService().changePassword(oldCtrl.text, newCtrl.text, token);
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Password updated!"), backgroundColor: Colors.green));
+                  }
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+                } finally {
+                  if (mounted) setDialogState(() => loading = false);
+                }
+              },
+              child: const Text("UPDATE"),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

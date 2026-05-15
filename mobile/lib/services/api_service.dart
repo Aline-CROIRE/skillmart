@@ -228,4 +228,37 @@ class ApiService {
       return response.statusCode == 200 ? jsonDecode(response.body) : null;
     } catch (e) { return null; }
   }
+
+  Future<Map<String, dynamic>> changePassword(String oldPassword, String newPassword, String token) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/auth/change-password'),
+      headers: _headers(token),
+      body: jsonEncode({'oldPassword': oldPassword, 'newPassword': newPassword}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) return data;
+    throw data['message'] ?? 'Failed to change password';
+  }
+
+  Future<String> forgotPassword(String email) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/auth/forgot-password'),
+      headers: _headers(null),
+      body: jsonEncode({'email': email}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) return data['message'] ?? 'Recovery code sent';
+    throw data['message'] ?? 'Failed to request reset';
+  }
+
+  Future<String> resetPassword(String email, String code, String newPassword) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/auth/reset-password'),
+      headers: _headers(null),
+      body: jsonEncode({'email': email, 'code': code, 'newPassword': newPassword}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) return data['message'] ?? 'Password reset successfully';
+    throw data['message'] ?? 'Failed to reset password';
+  }
 }

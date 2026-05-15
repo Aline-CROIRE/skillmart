@@ -11,7 +11,9 @@ class ApiConfig {
     const fromEnv = String.fromEnvironment('API_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
     
-    // Forced to use Hosted Backend instead of Local
+    // For testing: use local API in debug mode to test email codes
+    if (kDebugMode) return defaultDevLanUrl;
+    
     return productionUrl;
   }
 }

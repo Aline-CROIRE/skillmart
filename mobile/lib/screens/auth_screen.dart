@@ -6,6 +6,7 @@ import '../services/notification_service.dart';
 import '../main.dart';
 import '../theme.dart';
 import 'home_screen.dart';
+import 'forgot_password_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -131,7 +132,14 @@ class _AuthScreenState extends State<AuthScreen> {
                             _buildField(_email, "Email", Icons.email, false),
                             _buildField(_pass, "Password", Icons.lock, true),
                             if (!isLogin) _buildField(_confirmPass, "Confirm Password", Icons.lock_outline, true),
-                            const SizedBox(height: 25),
+                            if (isLogin) Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())),
+                                child: Text("Forgot Password?", style: TextStyle(color: colorScheme.primary, fontSize: 13)),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
                             _isLoading ? const CircularProgressIndicator() : 
                             SizedBox(
                               width: double.infinity, 

@@ -17,6 +17,8 @@ const userSchema = new mongoose.Schema({
   emailVerificationCode: { type: String, select: false },
   emailVerificationExpires: { type: Date, select: false },
   fcmToken: { type: String },
+  resetPasswordCode: { type: String, select: false },
+  resetPasswordExpires: { type: Date, select: false },
   purchasedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
   bookmarkedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]
 }, { timestamps: true });

@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const { sendVerificationEmail } = require('../services/emailService');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -189,6 +189,65 @@ exports.verifyEmail = async (req, res) => {
 
     const updated = await User.findById(user._id).select('-password');
     res.json({ message: 'Email verified successfully', emailVerified: true, user: updated });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id).select('+password');
+    
+    if (!(await user.matchPassword(oldPassword))) {
+      return res.status(401).json({ message: 'Current password incorrect' });
+    }
+
+    user.password = newPassword;
+    await user.save();
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const code = String(crypto.randomInt(100000, 1000000));
+    user.resetPasswordCode = code;
+    user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+    await user.save();
+
+    await sendPasswordResetEmail(user.email, user.name, code);
+    res.json({ message: 'Recovery code sent to your email' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    const user = await User.findOne({ email }).select('+resetPasswordCode +resetPasswordExpires');
+    
+    if (!user || user.resetPasswordCode !== String(code).trim()) {
+      return res.status(400).json({ message: 'Invalid or expired code' });
+    }
+
+    if (user.resetPasswordExpires < new Date()) {
+      return res.status(400).json({ message: 'Code has expired' });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordCode = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ message: 'Password reset successful. You can now login.' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
