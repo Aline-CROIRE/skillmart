@@ -8,6 +8,23 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+exports.sendVerificationEmail = async (userEmail, userName, code) => {
+  try {
+    const mailOptions = {
+      from: 'skillmart13@gmail.com',
+      to: userEmail,
+      subject: 'Verify your SkillMart email',
+      text: `Hello ${userName},\n\nYour SkillMart verification code is: ${code}\n\nThis code expires in 15 minutes. If you did not request this, you can ignore this email.\n\nBest regards,\nThe SkillMart Team`,
+    };
+    await transporter.sendMail(mailOptions);
+    console.log(`Verification email sent to ${userEmail}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+    return false;
+  }
+};
+
 exports.sendNotificationEmail = async (userEmail, projectName, status) => {
   try {
     let subject = '';

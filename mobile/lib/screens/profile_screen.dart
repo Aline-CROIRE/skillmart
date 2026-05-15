@@ -7,6 +7,7 @@ import '../main.dart';
 import '../theme.dart';
 import 'auth_screen.dart';
 import 'transaction_history_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -17,7 +18,9 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String _name = "User";
   String _email = "";
+  String _bio = "";
   String _avatarUrl = "";
+  bool _emailVerified = false;
   int _balance = 0;
   bool _isLoading = true;
   bool _isUploading = false;
@@ -35,7 +38,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _name = profile['name'] ?? "Member";
           _email = profile['email'] ?? "";
+          _bio = profile['bio'] ?? "";
           _avatarUrl = profile['avatar'] ?? "";
+          _emailVerified = profile['emailVerified'] == true;
           _balance = profile['walletBalance'] ?? 0;
           _isLoading = false;
         });
@@ -149,7 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               
               const SizedBox(height: 25),
               _sectionHeader("Security & Preferences"),
-              _tile("Edit Profile", Icons.edit_note, () {}),
+              _tile("Edit Profile", Icons.edit_note, _openEditProfile),
               _tile("Change Password", Icons.lock_outline, () {}),
               _tile("Privacy Settings", Icons.security, () {}),
               
@@ -214,7 +219,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 15),
         Text(_name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
-        Text(_email, style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5))),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                _email,
+                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            if (_emailVerified) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.verified, size: 18, color: Colors.green.shade600),
+            ],
+          ],
+        ),
+        if (_bio.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              _bio,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: colorScheme.onSurface.withOpacity(0.55), fontSize: 14),
+            ),
+          ),
+        ],
+        if (!_emailVerified && _email.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: _openEditProfile,
+            icon: const Icon(Icons.mark_email_unread_outlined, size: 18),
+            label: const Text('Verify email (optional)'),
+          ),
+        ],
       ],
     );
   }
@@ -301,6 +340,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openEditProfile() async {
+    final updated = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileScreen(
+          initialName: _name,
+          initialEmail: _email,
+          initialBio: _bio,
+          emailVerified: _emailVerified,
+        ),
+      ),
+    );
+
+    if (updated != null && mounted) {
+      setState(() {
+        _name = updated['name'] ?? _name;
+        _email = updated['email'] ?? _email;
+        _bio = updated['bio'] ?? '';
+        _emailVerified = updated['emailVerified'] == true;
+      });
+    }
   }
 
   void _handleLogout() async {

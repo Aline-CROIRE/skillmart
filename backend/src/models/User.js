@@ -13,6 +13,9 @@ const userSchema = new mongoose.Schema({
   walletBalance: { type: Number, default: 0 },
   bio: { type: String },
   avatar: { type: String },
+  emailVerified: { type: Boolean, default: false },
+  emailVerificationCode: { type: String, select: false },
+  emailVerificationExpires: { type: Date, select: false },
   fcmToken: { type: String },
   purchasedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
   bookmarkedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]

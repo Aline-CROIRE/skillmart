@@ -39,6 +39,48 @@ class ApiService {
     } catch (e) { return null; }
   }
 
+  Future<Map<String, dynamic>> updateProfileInfo(
+    String token, {
+    String? name,
+    String? bio,
+    String? email,
+  }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (bio != null) body['bio'] = bio;
+    if (email != null) body['email'] = email;
+
+    final res = await http.patch(
+      Uri.parse('$baseUrl/auth/profile/info'),
+      headers: _headers(token),
+      body: jsonEncode(body),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) return data;
+    throw data['message'] ?? 'Failed to update profile';
+  }
+
+  Future<String> sendEmailVerification(String token) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/auth/verify-email/send'),
+      headers: _headers(token),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) return data['message'] ?? 'Verification code sent';
+    throw data['message'] ?? 'Failed to send verification code';
+  }
+
+  Future<Map<String, dynamic>> verifyEmail(String token, String code) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/auth/verify-email'),
+      headers: _headers(token),
+      body: jsonEncode({'code': code}),
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200) return data;
+    throw data['message'] ?? 'Verification failed';
+  }
+
   Future<Map<String, dynamic>?> addFunds(int amount, String token) async {
     try {
       final res = await http.patch(Uri.parse('$baseUrl/auth/deposit'), headers: _headers(token), body: jsonEncode({'amount': amount}));
