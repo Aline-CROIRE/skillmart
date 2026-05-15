@@ -8,6 +8,7 @@ const {
   updateProfile,
   updateProfileInfo,
   updateNationalId,
+  updateVerificationSelfie,
   sendEmailVerification,
   verifyEmail,
   changePassword,
@@ -23,6 +24,7 @@ router.get('/profile', protect, getProfile); // RESTORED
 router.patch('/profile', protect, cloudinaryUpload.single('avatar'), updateProfile);
 router.patch('/profile/info', protect, updateProfileInfo);
 router.patch('/profile/national-id', protect, cloudinaryUpload.single('nationalId'), updateNationalId);
+router.patch('/profile/verification-selfie', protect, cloudinaryUpload.single('selfie'), updateVerificationSelfie);
 router.post('/verify-email/send', protect, sendEmailVerification);
 router.post('/verify-email', protect, verifyEmail);
 router.patch('/deposit', protect, depositBalance);

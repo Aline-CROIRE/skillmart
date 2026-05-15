@@ -1,10 +1,23 @@
 const Project = require('../models/Project');
 
-// 1. Get all projects waiting for an expert
+// 1. Get available projects (Waiting for an expert)
 exports.getPendingQueue = async (req, res) => {
   try {
     const projects = await Project.find({ 
-      status: { $in: ['pending', 'under_review', 'needs_changes'] } 
+      status: 'pending'
+    }).populate('sellerId', 'name');
+    res.json(projects);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 2. Get my active assignments (Projects I am working on)
+exports.getMyAssignments = async (req, res) => {
+  try {
+    const projects = await Project.find({ 
+      analystId: req.user._id,
+      status: 'under_review'
     }).populate('sellerId', 'name');
     res.json(projects);
   } catch (error) {
@@ -43,6 +56,11 @@ exports.submitDecision = async (req, res) => {
 
     const updateData = { status, reviewNote };
     if (price) updateData.price = Number(price);
+    
+    // Handle Analytics Document Upload
+    if (req.file) {
+      updateData.analyticsFileUrl = req.file.path;
+    }
 
     const project = await Project.findByIdAndUpdate(
       req.params.id,
@@ -82,6 +100,19 @@ exports.submitDecision = async (req, res) => {
     }
 
     res.json({ message: "Evaluation recorded. Awaiting admin final sign-off.", project });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// 4. Get Analyst's history (projects they have reviewed)
+exports.getAnalystHistory = async (req, res) => {
+  try {
+    const projects = await Project.find({ 
+      analystId: req.user._id,
+      status: { $nin: ['pending', 'under_review'] }
+    }).sort({ updatedAt: -1 });
+    res.json(projects);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

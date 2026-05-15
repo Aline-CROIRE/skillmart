@@ -8,7 +8,9 @@ const {
   getAnalysts,
   createAnalyst,
   togglePauseAnalyst,
-  confirmAnalystProfile
+  confirmAnalystProfile,
+  getAnalyticsRequests,
+  updateAnalyticsRequestStatus
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
 
@@ -23,5 +25,7 @@ router.get('/analysts', getAnalysts);
 router.post('/create-analyst', createAnalyst);
 router.post('/pause-analyst', togglePauseAnalyst);
 router.post('/confirm-profile', confirmAnalystProfile);
+router.get('/analytics-requests', getAnalyticsRequests);
+router.post('/analytics-decision', updateAnalyticsRequestStatus);
 
 module.exports = router;

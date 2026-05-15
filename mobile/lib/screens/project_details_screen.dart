@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'analyst_audit_screen.dart';
+import 'file_view_screen.dart';
 import '../models/project_model.dart';
 import '../services/api_service.dart';
 
@@ -123,6 +124,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final bool isApproved = widget.project.status == 'approved';
     final bool isMyProject = widget.project.sellerId == _currentUserId;
+    final bool isStaff = _userRole == 'Admin' || _userRole == 'Analyst';
     
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -178,6 +180,14 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                 _buildInfoRow("Shareholders", "Seeking ${widget.project.maxShareholders}", Icons.groups, colorScheme),
               if (widget.project.linkedinUrl.isNotEmpty)
                 _buildInfoRow("LinkedIn", widget.project.linkedinUrl, Icons.link, colorScheme),
+            ],
+
+            // Expert Analytics Section
+            if (isApproved && (widget.isOwned || isStaff)) ...[
+              const SizedBox(height: 35),
+              const Text("Expert Premium Analytics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              _buildAnalyticsCard(colorScheme),
             ],
 
             if (isMyProject && widget.project.reviewNote.isNotEmpty) ...[
@@ -309,6 +319,100 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildAnalyticsCard(ColorScheme colorScheme) {
+    final bool isStaff = _userRole == 'Admin' || _userRole == 'Analyst';
+    if (isStaff) {
+       return _analyticsActionBox(
+        colorScheme,
+        "Expert Insight Ready",
+        "Staff can preview the analytics document.",
+        "PREVIEW",
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => FileViewScreen(title: "Expert Analytics", url: widget.project.analyticsFileUrl))),
+      );
+    }
+
+    final request = widget.project.analyticsAccessRequests.firstWhere(
+      (r) => r['userId'].toString() == _currentUserId, 
+      orElse: () => null
+    );
+
+    if (request == null) {
+      return _analyticsActionBox(
+        colorScheme,
+        "Premium Evaluation",
+        "Get a deep-dive professional analysis of this project's viability.",
+        "REQUEST ACCESS",
+        _requestAnalytics,
+      );
+    }
+
+    if (request['status'] == 'pending') {
+      return _analyticsActionBox(
+        colorScheme,
+        "Request Sent",
+        "Your request is being reviewed by the Admin.",
+        "PENDING",
+        null,
+      );
+    }
+
+    if (request['status'] == 'granted') {
+      return _analyticsActionBox(
+        colorScheme,
+        "Access Granted",
+        "You now have full access to the expert evaluation.",
+        "OPEN ANALYTICS",
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => FileViewScreen(title: "Expert Analytics", url: widget.project.analyticsFileUrl))),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _analyticsActionBox(ColorScheme colorScheme, String title, String sub, String btn, VoidCallback? action) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(15), border: Border.all(color: colorScheme.primary.withOpacity(0.1))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.verified_user, color: Colors.blue, size: 20),
+              const SizedBox(width: 10),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(sub, style: TextStyle(fontSize: 13, color: colorScheme.onSurface.withOpacity(0.6))),
+          const SizedBox(height: 15),
+          if (action != null)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(onPressed: action, child: Text(btn)),
+            )
+          else
+            Container(
+              width: double.infinity, height: 45,
+              decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Center(child: Text(btn, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold))),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _requestAnalytics() async {
+    setState(() => _isProcessing = true);
+    final prefs = await SharedPreferences.getInstance();
+    final res = await ApiService().requestAnalyticsAccess(widget.project.id, prefs.getString('token')!);
+    if (mounted) {
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'])));
+      // Note: Ideally refresh the project data here
+    }
   }
 
   Widget _footerContainer(ColorScheme colorScheme, {required Widget child}) {

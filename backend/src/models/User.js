@@ -23,6 +23,7 @@ const userSchema = new mongoose.Schema({
   pausedUntil: { type: Date },
   isProfileConfirmed: { type: Boolean, default: false },
   nationalIdUrl: { type: String },
+  verificationSelfieUrl: { type: String },
   purchasedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
   bookmarkedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]
 }, { timestamps: true });

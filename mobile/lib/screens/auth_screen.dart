@@ -52,6 +52,7 @@ class _AuthScreenState extends State<AuthScreen> {
         await prefs.setString('role', res['role'] ?? 'User');
         await prefs.setString('userName', res['name'] ?? 'User');
         await prefs.setString('userId', res['_id'] ?? '');
+        await prefs.setBool('isProfileConfirmed', res['isProfileConfirmed'] == true);
 
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainMenuScreen()));
       } else if (mounted) {

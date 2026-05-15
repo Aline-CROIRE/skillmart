@@ -88,7 +88,7 @@ exports.manageAnalyst = async (req, res, next) => {
 exports.getAnalysts = async (req, res, next) => {
   try {
     const analysts = await User.find({ role: 'Analyst' })
-      .select('name email isPaused pausedUntil isProfileConfirmed nationalIdUrl avatar emailVerified');
+      .select('name email isPaused pausedUntil isProfileConfirmed nationalIdUrl verificationSelfieUrl avatar emailVerified');
     res.json(analysts);
   } catch (error) { next(error); }
 };
@@ -109,10 +109,15 @@ exports.createAnalyst = async (req, res, next) => {
     });
 
     // Send credentials via email
+    console.log(`Attempting to send credentials to ${email}...`);
     await sendAnalystCredentialsEmail(email, name, password);
 
+    console.log(`Analyst ${email} created successfully.`);
     res.status(201).json({ message: "Analyst account created and credentials emailed", analyst: { name, email } });
-  } catch (error) { next(error); }
+  } catch (error) { 
+    console.error('Analyst Creation Error:', error);
+    next(error); 
+  }
 };
 
 // Confirm Analyst Profile
@@ -158,5 +163,52 @@ exports.togglePauseAnalyst = async (req, res, next) => {
       isPaused: user.isPaused,
       pausedUntil: user.pausedUntil 
     });
+  } catch (error) { next(error); }
+};
+
+// 7. Get all projects with pending analytics document requests
+exports.getAnalyticsRequests = async (req, res, next) => {
+  try {
+    const projects = await Project.find({ 
+      'analyticsAccessRequests.status': 'pending' 
+    }).populate('analyticsAccessRequests.userId', 'name email');
+    
+    // Flatten for easier UI consumption
+    const flattened = [];
+    projects.forEach(p => {
+      p.analyticsAccessRequests.forEach(reqObj => {
+        if (reqObj.status === 'pending') {
+          flattened.push({
+            requestId: reqObj._id,
+            projectId: p._id,
+            projectTitle: p.title,
+            userId: reqObj.userId._id,
+            userName: reqObj.userId.name,
+            userEmail: reqObj.userId.email,
+            requestedAt: reqObj.requestedAt
+          });
+        }
+      });
+    });
+    
+    res.json(flattened);
+  } catch (error) { next(error); }
+};
+
+// 8. Update Analytics Access Status (Grant/Deny)
+exports.updateAnalyticsRequestStatus = async (req, res, next) => {
+  try {
+    const { projectId, requestId, status } = req.body; // status: 'granted' or 'denied'
+    
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    const request = project.analyticsAccessRequests.id(requestId);
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    request.status = status;
+    await project.save();
+
+    res.json({ message: `Access request ${status} successfully.`, status });
   } catch (error) { next(error); }
 };

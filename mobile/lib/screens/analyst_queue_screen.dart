@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/project_model.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
+import 'analyst_preview_screen.dart';
 import 'analyst_audit_screen.dart';
 
 class AnalystQueueScreen extends StatefulWidget {
@@ -130,7 +131,7 @@ class _AnalystQueueScreenState extends State<AnalystQueueScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text("Hello, $_name", style: TextStyle(color: isDark ? Colors.white.withOpacity(0.7) : Colors.black54, fontSize: 16)),
-              Text("Quality Control Hub", style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 26, fontWeight: FontWeight.bold)),
+              Text("Available Projects", style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 26, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -171,16 +172,25 @@ class _AnalystQueueScreenState extends State<AnalystQueueScreen> {
 
   Widget _divider(BuildContext context) => Container(height: 30, width: 1, color: Theme.of(context).dividerColor);
 
+  
+
   Widget _buildEvaluationCard(Project p, BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AnalystAuditScreen(project: p))).then((_) => _fetch()),
+        onTap: () async {
+          final assigned = await Navigator.push<bool>(
+            context, 
+            MaterialPageRoute(builder: (_) => AnalystPreviewScreen(project: p))
+          );
+          if (assigned == true) _fetch();
+        },
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            color: colorScheme.surface,
             borderRadius: BorderRadius.circular(20),
             boxShadow: [BoxShadow(color: Theme.of(context).shadowColor.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
           ),
@@ -188,20 +198,20 @@ class _AnalystQueueScreenState extends State<AnalystQueueScreen> {
             children: [
               Container(
                 height: 50, width: 50,
-                decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-                child: Icon(Icons.fact_check, color: Theme.of(context).colorScheme.primary),
+                decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                child: Icon(Icons.assignment_outlined, color: colorScheme.primary),
               ),
               const SizedBox(width: 20),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(p.title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).colorScheme.onSurface)),
-                    Text("${p.sellerName} • ${p.category}", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 13)),
+                    Text(p.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text("${p.sellerName} • ${p.category}", style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5), fontSize: 13)),
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, size: 14, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
             ],
           ),
         ),
@@ -211,7 +221,14 @@ class _AnalystQueueScreenState extends State<AnalystQueueScreen> {
 
   Widget _buildEmptyQueue(BuildContext context) {
     return SliverFillRemaining(
-      child: Center(child: Text("The queue is empty. Great job!", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)))),
+      child: Center(child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle_outline, size: 80, color: Colors.green.withOpacity(0.5)),
+          const SizedBox(height: 15),
+          Text("No pending projects. Great job!", style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5))),
+        ],
+      )),
     );
   }
 }

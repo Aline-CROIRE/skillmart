@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../theme.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'file_view_screen.dart';
 
 class TeamManagementScreen extends StatefulWidget {
   const TeamManagementScreen({super.key});
@@ -43,33 +46,51 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     final nameCtrl = TextEditingController();
     final emailCtrl = TextEditingController();
     final passCtrl = TextEditingController();
+    bool loading = false;
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Create Analyst Account"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Full Name")),
-            TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email")),
-            TextField(controller: passCtrl, decoration: const InputDecoration(labelText: "Temporary Password"), obscureText: true),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text("Create Analyst Account"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Full Name")),
+              const SizedBox(height: 10),
+              TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email")),
+              const SizedBox(height: 10),
+              TextField(controller: passCtrl, decoration: const InputDecoration(labelText: "Temporary Password"), obscureText: true),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+            loading 
+              ? const SizedBox(width: 40, height: 40, child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator(strokeWidth: 2)))
+              : ElevatedButton(
+                  onPressed: () async {
+                    if (nameCtrl.text.isEmpty || emailCtrl.text.isEmpty || passCtrl.text.isEmpty) {
+                      _showError("All fields are required");
+                      return;
+                    }
+                    setDialogState(() => loading = true);
+                    try {
+                      final prefs = await SharedPreferences.getInstance();
+                      final token = prefs.getString('token') ?? '';
+                      await _api.createAnalyst(nameCtrl.text, emailCtrl.text, passCtrl.text, token);
+                      if (mounted) {
+                        Navigator.pop(context);
+                        _fetch();
+                      }
+                    } catch (e) { 
+                      _showError(e.toString()); 
+                      setDialogState(() => loading = false);
+                    }
+                  },
+                  child: const Text("CREATE"),
+                ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                final prefs = await SharedPreferences.getInstance();
-                await _api.createAnalyst(nameCtrl.text, emailCtrl.text, passCtrl.text, prefs.getString('token') ?? '');
-                Navigator.pop(context);
-                _fetch();
-              } catch (e) { _showError(e.toString()); }
-            },
-            child: const Text("CREATE"),
-          ),
-        ],
       ),
     );
   }
@@ -136,17 +157,13 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                 final bool verified = a['emailVerified'] == true;
                 final bool confirmed = a['isProfileConfirmed'] == true;
                 final String? idUrl = a['nationalIdUrl'];
-
+                final String? selfieUrl = a['verificationSelfieUrl'];
+                
                 return Card(
-                  elevation: 0,
-                  color: Theme.of(context).colorScheme.surface,
                   margin: const EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: paused ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.1)),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: ExpansionTile(
-                    tilePadding: const EdgeInsets.all(12),
+                    shape: const RoundedRectangleBorder(side: BorderSide.none),
                     leading: CircleAvatar(
                       backgroundImage: a['avatar'] != null ? NetworkImage(a['avatar']) : null,
                       child: a['avatar'] == null ? const Icon(Icons.person) : null,
@@ -170,19 +187,26 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                       Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (idUrl != null)
-                              ListTile(
-                                leading: const Icon(Icons.badge_outlined),
-                                title: const Text("View National ID"),
-                                trailing: const Icon(Icons.open_in_new),
-                                onTap: () { /* Open URL */ },
-                              ),
-                            const Divider(),
+                            const Text("Compliance Checklist", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 10),
+                            _requirementRow("Email Verified", verified),
+                            _requirementRow("National ID Uploaded", idUrl != null),
+                            _requirementRow("Verification Selfie Uploaded", selfieUrl != null),
+                            const Divider(height: 30),
+                            if (idUrl != null || selfieUrl != null) ...[
+                              const Text("Review Files", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              if (idUrl != null)
+                                _fileTile("National ID", idUrl, Icons.badge_outlined),
+                              if (selfieUrl != null)
+                                _fileTile("Identity Verification Selfie", selfieUrl, Icons.face_retouching_natural),
+                              const Divider(height: 30),
+                            ],
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text("Account Active"),
+                                const Text("Account Access"),
                                 Switch(
                                   value: !paused,
                                   activeColor: Colors.green,
@@ -191,17 +215,26 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                               ],
                             ),
                             if (!confirmed)
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: () async {
-                                    try {
-                                      final prefs = await SharedPreferences.getInstance();
-                                      await _api.confirmAnalystProfile(a['_id'], prefs.getString('token') ?? '');
-                                      _fetch();
-                                    } catch (e) { _showError(e.toString()); }
-                                  },
-                                  child: const Text("CONFIRM PROFILE"),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 15),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: (verified && idUrl != null && selfieUrl != null) 
+                                        ? SkillMartTheme.primaryBlue 
+                                        : Colors.grey.shade300,
+                                    ),
+                                    onPressed: (verified && idUrl != null && selfieUrl != null) 
+                                      ? () async {
+                                        try {
+                                          final prefs = await SharedPreferences.getInstance();
+                                          await _api.confirmAnalystProfile(a['_id'], prefs.getString('token') ?? '');
+                                          _fetch();
+                                        } catch (e) { _showError(e.toString()); }
+                                      } : null,
+                                    child: const Text("CONFIRM PROFILE"),
+                                  ),
                                 ),
                               ),
                           ],
@@ -212,6 +245,39 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                 );
               },
             ),
+    );
+  }
+
+  Widget _requirementRow(String label, bool met) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(met ? Icons.check_circle : Icons.cancel, size: 16, color: met ? Colors.green : Colors.red),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(color: met ? Colors.green : Colors.red, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  
+
+  Widget _fileTile(String label, String url, IconData icon) {
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, size: 20),
+      title: Text(label, style: const TextStyle(fontSize: 13)),
+      trailing: const Icon(Icons.fullscreen, size: 16),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FileViewScreen(title: label, url: url),
+          ),
+        );
+      },
     );
   }
 

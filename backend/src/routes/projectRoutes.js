@@ -5,7 +5,9 @@ const {
   getAllProjects, 
   getSellerProjects, 
   updateProject,
-  bookmarkProject
+  bookmarkProject,
+  getProjectById,
+  requestAnalyticsAccess
 } = require('../controllers/projectController');
 const { protect } = require('../middlewares/authMiddleware');
 const cloudinaryUpload = require('../config/cloudinary');
@@ -18,6 +20,8 @@ router.get('/', getAllProjects);
 router.post('/', protect, createProject);
 router.get('/seller/:sellerId', protect, getSellerProjects);
 router.post('/bookmark/:id', protect, bookmarkProject);
+router.post('/:id/request-analytics', protect, requestAnalyticsAccess);
+router.get('/:id', getProjectById);
 router.patch('/:id', protect, updateProject); // Fixed Line 16
 
 module.exports = router;

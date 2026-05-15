@@ -195,14 +195,68 @@ class ApiService {
     } catch (e) { return []; }
   }
 
-  Future<bool> adminDecision(String id, String status, String token, {String reviewNote = "", int? price}) async {
+  Future<bool> submitAnalystDecision(String id, String status, String token, {String reviewNote = "", int? price, String? analyticsPath}) async {
     try {
-      final body = {'status': status, 'reviewNote': reviewNote};
-      if (price != null) body['price'] = price.toString();
+      var request = http.MultipartRequest('PATCH', Uri.parse('$baseUrl/analyst/review/$id'));
+      request.headers.addAll(_headers(token));
       
-      final res = await http.patch(Uri.parse('$baseUrl/analyst/review/$id'), headers: _headers(token), body: jsonEncode(body));
+      request.fields['status'] = status;
+      request.fields['reviewNote'] = reviewNote;
+      if (price != null) request.fields['price'] = price.toString();
+      
+      if (analyticsPath != null) {
+        request.files.add(await http.MultipartFile.fromPath('analyticsFile', analyticsPath));
+      }
+
+      var streamedResponse = await request.send();
+      return streamedResponse.statusCode == 200;
+    } catch (e) { return false; }
+  }
+
+  // Admin: Analytics Requests
+  Future<List<dynamic>> getAnalyticsRequests(String token) async {
+    final res = await http.get(Uri.parse('$baseUrl/admin/analytics-requests'), headers: _headers(token));
+    return res.statusCode == 200 ? jsonDecode(res.body) : [];
+  }
+
+  Future<bool> updateAnalyticsRequestStatus(String projectId, String requestId, String status, String token) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/admin/analytics-decision'),
+      headers: _headers(token),
+      body: jsonEncode({'projectId': projectId, 'requestId': requestId, 'status': status}),
+    );
+    return res.statusCode == 200;
+  }
+
+  // User: Request Access
+  Future<Map<String, dynamic>> requestAnalyticsAccess(String projectId, String token) async {
+    final res = await http.post(Uri.parse('$baseUrl/projects/$projectId/request-analytics'), headers: _headers(token));
+    return jsonDecode(res.body);
+  }
+
+  Future<bool> claimProject(String id, String token) async {
+    try {
+      final res = await http.patch(Uri.parse('$baseUrl/analyst/claim/$id'), headers: _headers(token));
       return res.statusCode == 200;
     } catch (e) { return false; }
+  }
+
+  Future<List<Project>> getAnalystAssignments(String token) async {
+    final res = await http.get(Uri.parse('$baseUrl/analyst/assignments'), headers: _headers(token));
+    if (res.statusCode == 200) {
+      List<dynamic> data = jsonDecode(res.body);
+      return data.map((json) => Project.fromJson(json)).toList();
+    }
+    throw 'Failed to load assignments';
+  }
+
+  Future<List<Project>> getAnalystHistory(String token) async {
+    final res = await http.get(Uri.parse('$baseUrl/analyst/history'), headers: _headers(token));
+    if (res.statusCode == 200) {
+      List<dynamic> data = jsonDecode(res.body);
+      return data.map((json) => Project.fromJson(json)).toList();
+    }
+    throw 'Failed to load history';
   }
 
   Future<Map<String, dynamic>?> bookmarkProject(String id, String token) async {
@@ -276,7 +330,7 @@ class ApiService {
   Future<List<dynamic>> getAnalysts(String token) async {
     final res = await http.get(Uri.parse('$baseUrl/admin/analysts'), headers: _headers(token));
     if (res.statusCode == 200) return jsonDecode(res.body);
-    throw 'Failed to load analysts';
+    throw 'Error ${res.statusCode}: Failed to load analysts';
   }
 
   Future<Map<String, dynamic>> createAnalyst(String name, String email, String password, String token) async {
@@ -312,14 +366,25 @@ class ApiService {
     throw data['message'] ?? 'Failed to confirm analyst profile';
   }
 
-  Future<Map<String, dynamic>?> uploadNationalId(PlatformFile file, String token) async {
-    final request = http.MultipartRequest('PATCH', Uri.parse('$baseUrl/auth/profile/national-id'));
-    request.headers.addAll({'Authorization': 'Bearer $token'});
+  Future<Map<String, dynamic>> uploadNationalId(PlatformFile file, String token) async {
+    final uri = Uri.parse('$baseUrl/auth/profile/national-id');
+    final request = http.MultipartRequest('PATCH', uri);
+    request.headers.addAll(_headers(token));
     request.files.add(await http.MultipartFile.fromPath('nationalId', file.path!));
+    final streamRes = await request.send();
+    final res = await http.Response.fromStream(streamRes);
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw jsonDecode(res.body)['message'] ?? 'Failed to upload ID';
+  }
 
-    final res = await request.send();
-    final resBody = await res.stream.bytesToString();
-    if (res.statusCode == 200) return jsonDecode(resBody);
-    return null;
+  Future<Map<String, dynamic>> uploadVerificationSelfie(PlatformFile file, String token) async {
+    final uri = Uri.parse('$baseUrl/auth/profile/verification-selfie');
+    final request = http.MultipartRequest('PATCH', uri);
+    request.headers.addAll(_headers(token));
+    request.files.add(await http.MultipartFile.fromPath('selfie', file.path!));
+    final streamRes = await request.send();
+    final res = await http.Response.fromStream(streamRes);
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw jsonDecode(res.body)['message'] ?? 'Failed to upload selfie';
   }
 }

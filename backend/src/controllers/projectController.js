@@ -117,3 +117,23 @@ exports.getProjectById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.requestAnalyticsAccess = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    // Check if already requested
+    const existing = project.analyticsAccessRequests.find(r => r.userId.toString() === req.user._id.toString());
+    if (existing) {
+      return res.status(400).json({ message: "You already have a pending or granted request for this analytics document." });
+    }
+
+    project.analyticsAccessRequests.push({ userId: req.user._id, status: 'pending' });
+    await project.save();
+
+    res.json({ message: "Request sent. Waiting for Admin approval.", status: 'pending' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
 import '../main.dart';
 import '../theme.dart';
@@ -25,6 +26,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _emailVerified = false;
   String _role = "User";
   bool _isProfileConfirmed = false;
+  String _idUrl = "";
+  String _selfieUrl = "";
   int _balance = 0;
   bool _isLoading = true;
   bool _isUploading = false;
@@ -47,6 +50,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _emailVerified = profile['emailVerified'] == true;
           _role = prefs.getString('role') ?? 'User';
           _isProfileConfirmed = profile['isProfileConfirmed'] == true;
+          _idUrl = profile['nationalIdUrl'] ?? "";
+          _selfieUrl = profile['verificationSelfieUrl'] ?? "";
           _balance = profile['walletBalance'] ?? 0;
           _isLoading = false;
         });
@@ -164,10 +169,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _sectionHeader("Security & Preferences"),
               _tile("Edit Profile", Icons.edit_note, _openEditProfile),
               _tile("Change Password", Icons.lock_outline, _showChangePasswordDialog),
-              if (_role == 'Analyst')
-                _tile("Upload National ID", Icons.badge_outlined, _pickAndUploadNationalId, 
-                  subtitle: _isProfileConfirmed ? "Verified" : "Pending Confirmation"),
               _tile("Privacy Settings", Icons.security, () {}),
+              
+              if (_role == 'Analyst') ...[
+                const SizedBox(height: 25),
+                _sectionHeader("Vetting & Verification"),
+                _tile(
+                  "Upload National ID", 
+                  Icons.badge_outlined, 
+                  _pickAndUploadNationalId, 
+                  subtitle: _idUrl.isNotEmpty ? "File Uploaded ✅" : "Action Required ⚠️"
+                ),
+                _tile(
+                  "Verification Selfie", 
+                  Icons.face_retouching_natural, 
+                  _pickAndUploadVerificationSelfie,
+                  subtitle: _selfieUrl.isNotEmpty ? "Selfie Uploaded ✅" : "Action Required ⚠️"
+                ),
+                if (_isProfileConfirmed)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.verified_user, color: Colors.green, size: 20),
+                          SizedBox(width: 10),
+                          Text("Your profile is fully confirmed", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
               
               const SizedBox(height: 25),
               _sectionHeader("Support"),
@@ -385,12 +419,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
-      final res = await _api.uploadNationalId(result.files.first, token);
-      if (res != null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("ID Uploaded! Waiting for Admin confirmation."), backgroundColor: Colors.blue));
-          _load();
-        }
+      await _api.uploadNationalId(result.files.first, token);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("ID Uploaded! Waiting for Admin confirmation."), backgroundColor: Colors.blue));
+        _load();
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  
+
+  Future<void> _pickAndUploadVerificationSelfie() async {
+    final picker = ImagePicker();
+    final XFile? photo = await picker.pickImage(source: ImageSource.camera);
+    if (photo == null) return;
+
+    setState(() => _isUploading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+      
+      // Need to convert XFile to PlatformFile for ApiService or just update ApiService to handle XFile
+      // Actually, I'll update ApiService to handle path or PlatformFile consistently.
+      // For now, I'll use PlatformFile from path.
+      final pFile = PlatformFile(name: photo.name, path: photo.path, size: await photo.length());
+      
+      await _api.uploadVerificationSelfie(pFile, token);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Verification Selfie Taken & Uploaded!"), backgroundColor: Colors.blue));
+        _load();
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));

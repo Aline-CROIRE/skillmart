@@ -30,6 +30,9 @@ class Project {
   final int minShare;
   final int shareValue;
 
+  final String analyticsFileUrl;
+  final List<dynamic> analyticsAccessRequests;
+
   Project({
     required this.id,
     required this.title,
@@ -54,6 +57,8 @@ class Project {
     this.rraTaxHistoryUrl = "",
     this.rraClearanceUrl = "",
     this.pitchVideoUrl = "",
+    this.analyticsFileUrl = "",
+    this.analyticsAccessRequests = const [],
     this.isShareholderSeeking = false,
     this.maxShareholders = 0,
     this.totalSharesAvailable = 0,
@@ -98,6 +103,8 @@ class Project {
       rraTaxHistoryUrl: json['rraTaxHistoryUrl']?.toString() ?? '',
       rraClearanceUrl: json['rraClearanceUrl']?.toString() ?? '',
       pitchVideoUrl: json['pitchVideoUrl']?.toString() ?? '',
+      analyticsFileUrl: json['analyticsFileUrl']?.toString() ?? '',
+      analyticsAccessRequests: json['analyticsAccessRequests'] ?? [],
       isShareholderSeeking: json['isShareholderSeeking'] ?? false,
       maxShareholders: json['maxShareholders'] ?? 0,
       totalSharesAvailable: json['totalSharesAvailable'] ?? 0,

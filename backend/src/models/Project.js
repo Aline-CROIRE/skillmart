@@ -45,7 +45,15 @@ const projectSchema = new mongoose.Schema({
   stats: {
     views: { type: Number, default: 0 },
     sales: { type: Number, default: 0 }
-  }
+  },
+  
+  // Premium Analytics
+  analyticsFileUrl: { type: String },
+  analyticsAccessRequests: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    status: { type: String, enum: ['pending', 'granted', 'denied'], default: 'pending' },
+    requestedAt: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Project', projectSchema);

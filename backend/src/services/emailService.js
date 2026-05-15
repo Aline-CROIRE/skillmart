@@ -44,7 +44,7 @@ async function sendViaResend(to, subject, text) {
   return true;
 }
 
-const getHtmlTemplate = (title, body, buttonLabel = null, buttonUrl = null) => `
+const getHtmlTemplate = (title, body) => `
 <!DOCTYPE html>
 <html>
 <head>
@@ -53,23 +53,25 @@ const getHtmlTemplate = (title, body, buttonLabel = null, buttonUrl = null) => `
   <style>
     body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f7f9; margin: 0; padding: 0; }
     .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .header { background-color: #1e3a8a; padding: 30px; text-align: center; }
-    .header h1 { color: #ffffff; margin: 0; font-size: 28px; letter-spacing: 1px; }
+    .header { background-color: #1e3a8a; padding: 40px 30px; text-align: center; }
+    .logo-box { background: white; width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; }
+    .logo-text { font-weight: bold; color: #1e3a8a; font-size: 24px; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px; text-transform: uppercase; }
     .content { padding: 40px; color: #334155; line-height: 1.6; }
     .content h2 { color: #1e293b; margin-top: 0; }
-    .button-container { text-align: center; margin-top: 30px; }
-    .button { display: inline-block; padding: 14px 28px; background-color: #2563eb; color: #ffffff !important; text-decoration: none; border-radius: 8px; font-weight: bold; }
     .footer { background-color: #f8fafc; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px; }
-    .code { font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #2563eb; margin: 20px 0; text-align: center; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header"><h1>SkillMart</h1></div>
+    <div class="header">
+      <div class="logo-box"><span class="logo-text">SM</span></div>
+      <h1>SkillMart</h1>
+    </div>
     <div class="content">
       <h2>${title}</h2>
       ${body}
-      ${buttonLabel && buttonUrl ? `<div class="button-container"><a href="${buttonUrl}" class="button">${buttonLabel}</a></div>` : ''}
+      <p style="margin-top: 30px; font-size: 14px; color: #64748b;"><em>Please open the SkillMart mobile app to continue.</em></p>
     </div>
     <div class="footer">
       <p>&copy; 2026 SkillMart Inc. All rights reserved.</p>
@@ -185,7 +187,7 @@ exports.sendAnalystCredentialsEmail = async (userEmail, userName, password) => {
     </ol>
     <p>Once your profile is confirmed by the Super Admin, you can start evaluating projects.</p>
   `;
-  const html = getHtmlTemplate("Welcome to the Team", body, "LOGIN NOW", "https://skillmart.app/login");
+  const html = getHtmlTemplate("Welcome to the Team", body);
 
   try {
     await sendMail(userEmail, subject, text, html);
@@ -210,7 +212,7 @@ exports.sendNotificationEmail = async (userEmail, projectName, status) => {
         <p>Exciting news! Analytics for <strong>"${projectName}"</strong> are now available.</p>
         <p>Our experts have completed their evaluation. You can now view the full data insights and performance score in the app.</p>
       `;
-      html = getHtmlTemplate("Project Approved", bodyContent, "VIEW ANALYTICS", "https://skillmart.app/explore");
+      html = getHtmlTemplate("Project Approved", bodyContent);
 
     } else if (status === 'rejected') {
       subject = `Update on Project: ${projectName}`;
@@ -220,7 +222,7 @@ exports.sendNotificationEmail = async (userEmail, projectName, status) => {
         <p>We are writing to inform you that the project <strong>"${projectName}"</strong> has been declined following our expert review.</p>
         <p>While this specific project didn't meet our criteria, you can find other high-potential opportunities in the Explore section.</p>
       `;
-      html = getHtmlTemplate("Project Update", bodyContent, "EXPLORE MORE", "https://skillmart.app/explore");
+      html = getHtmlTemplate("Project Update", bodyContent);
 
     } else if (status === 'needs_changes') {
       subject = `Action Required: Review Requested for ${projectName}`;
@@ -230,7 +232,7 @@ exports.sendNotificationEmail = async (userEmail, projectName, status) => {
         <p>An analyst has reviewed your submission for <strong>"${projectName}"</strong> and requested some additional information or changes.</p>
         <p>Please review the feedback and resubmit your project to continue the evaluation process.</p>
       `;
-      html = getHtmlTemplate("Action Required", bodyContent, "REVIEW FEEDBACK", "https://skillmart.app/my-work");
+      html = getHtmlTemplate("Action Required", bodyContent);
     }
 
     if (!subject) return;
