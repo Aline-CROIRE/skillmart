@@ -2,6 +2,12 @@ const nodemailer = require('nodemailer');
 
 const gmailUser = process.env.GMAIL_USER;
 const gmailPass = process.env.GMAIL_APP_PASSWORD;
+const resendKey = process.env.RESEND_API_KEY;
+
+console.log('--- Email Service Init ---');
+console.log('GMAIL_USER found:', !!gmailUser);
+console.log('GMAIL_APP_PASSWORD found:', !!gmailPass);
+console.log('RESEND_API_KEY found:', !!resendKey);
 
 let transporter = null;
 if (gmailUser && gmailPass) {
@@ -18,8 +24,8 @@ if (gmailUser && gmailPass) {
     greetingTimeout: 15000,
     socketTimeout: 20000,
   });
-} else {
-  console.warn('SMTP credentials (GMAIL_USER, GMAIL_APP_PASSWORD) missing. SMTP delivery disabled.');
+} else if (!resendKey) {
+  console.warn('SMTP or Resend credentials missing. Email delivery disabled.');
 }
 
 async function sendViaResend(to, subject, text) {

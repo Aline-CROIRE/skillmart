@@ -1,7 +1,9 @@
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+// Load environment variables
+require('dotenv').config(); // Standard (Render/Production)
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // Local fallback
 
 const app = require('./app');
 const connectDB = require('./config/db');
