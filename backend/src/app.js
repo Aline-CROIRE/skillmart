@@ -10,6 +10,7 @@ const analystRoutes = require('./routes/analystRoutes');
 const marketRoutes = require('./routes/marketRoutes');
 const chatRoutes = require('./routes/chatRoutes'); // NEW
 const adminRoutes = require('./routes/adminRoutes'); // NEW
+const testRoutes = require('./routes/testRoutes'); // TEMPORARY TEST
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use('/api/analyst', analystRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/chat', chatRoutes); // <--- FIXED: This solves the 404
 app.use('/api/admin', adminRoutes); // NEW
+app.use('/api/test', testRoutes); // TEMPORARY TEST
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'UP' }));
 app.use(errorHandler);
