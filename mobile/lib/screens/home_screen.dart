@@ -10,6 +10,8 @@ import 'analyst_work_desk_screen.dart';
 import 'admin_verification_screen.dart';
 import 'admin_analytics_requests_screen.dart';
 import 'team_management_screen.dart';
+import '../widgets/rating_dialog.dart';
+import 'dart:math';
 
 class MainMenuScreen extends StatefulWidget {
   const MainMenuScreen({super.key});
@@ -58,6 +60,31 @@ class _MainMenuScreenState extends State<MainMenuScreen> {
       }
     } else {
       setState(() => _isLoading = false);
+    }
+
+    // Rating Dialog Trigger
+    _checkAndShowRating();
+  }
+
+  Future<void> _checkAndShowRating() async {
+    if (_role != 'User') return;
+    
+    final prefs = await SharedPreferences.getInstance();
+    final lastRated = prefs.getInt('lastRatingPrompt') ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    
+    // Prompt only once every 3 days max, and with a 20% random chance
+    if (now - lastRated > 3 * 24 * 60 * 60 * 1000) {
+      if (Random().nextInt(5) == 0) {
+        if (mounted) {
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) {
+              showDialog(context: context, builder: (context) => const RatingDialog());
+              prefs.setInt('lastRatingPrompt', now);
+            }
+          });
+        }
+      }
     }
   }
 

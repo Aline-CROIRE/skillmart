@@ -1,14 +1,23 @@
 const Project = require('../models/Project');
 const Analysis = require('../models/Analysis');
 const User = require('../models/User');
-const { sendNotificationEmail, sendAnalystCredentialsEmail } = require('../services/emailService');
-const { sendPushNotification } = require('../services/notificationService');
+const { sendNotificationEmail, sendAnalystCredentialsEmail, sendMail, getHtmlTemplate, getLogoUrl } = require('../services/emailService');
+const { createNotification, sendPushNotification } = require('../services/notificationService');
+const Notification = require('../models/Notification');
 
 // Get all projects waiting for final Admin approval
 exports.getReviewQueue = async (req, res, next) => {
   try {
     const queue = await Project.find({ status: 'pending_approval' }).populate('sellerId', 'name');
     res.json(queue);
+  } catch (error) { next(error); }
+};
+
+// Get ALL projects in the system (Admin only)
+exports.getAllProjects = async (req, res, next) => {
+  try {
+    const projects = await Project.find().populate('sellerId', 'name email');
+    res.json(projects);
   } catch (error) { next(error); }
 };
 
@@ -37,13 +46,13 @@ exports.approveOrReject = async (req, res, next) => {
     if (project.watchers && project.watchers.length > 0) {
       for (const user of project.watchers) {
         if (user.email) sendNotificationEmail(user.email, project.title, status);
-        if (user.fcmToken) {
-          const pushTitle = status === 'approved' ? 'Expert Review Complete!' : 'Project Update';
-          const pushBody = status === 'approved' 
-            ? `Analytics for "${project.title}" are now available.` 
-            : `Project "${project.title}" was not approved at this time.`;
-          sendPushNotification(user.fcmToken, pushTitle, pushBody);
-        }
+        
+        const pushTitle = status === 'approved' ? 'Expert Review Complete!' : 'Project Update';
+        const pushBody = status === 'approved' 
+          ? `Analytics for "${project.title}" are now available.` 
+          : `Project "${project.title}" was not approved at this time.`;
+        
+        await createNotification(user, pushTitle, pushBody, 'project_update', project._id);
       }
       project.watchers = [];
       await project.save();
@@ -52,9 +61,13 @@ exports.approveOrReject = async (req, res, next) => {
     // Notify Owner
     if (project.sellerId) {
       if (project.sellerId.email) sendNotificationEmail(project.sellerId.email, project.title, status);
-      if (project.sellerId.fcmToken) {
-        sendPushNotification(project.sellerId.fcmToken, 'Status Update', `Your project "${project.title}" has been ${status}.`);
-      }
+      await createNotification(
+        project.sellerId, 
+        'Status Update', 
+        `Your project "${project.title}" has been ${status}.`, 
+        'project_update', 
+        project._id
+      );
     }
 
     res.json({ message: `Project ${status} successfully`, project });
@@ -70,17 +83,17 @@ exports.manageAnalyst = async (req, res, next) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.role === 'Admin') {
-      return res.status(403).json({ message: "Cannot change role of an Admin" });
-    }
-
     user.role = targetRole;
     await user.save();
 
-    res.json({ 
-      message: `User ${email} successfully ${action === 'promote' ? 'promoted to Analyst' : 'demoted to User'}`,
-      user: { email: user.email, role: user.role }
-    });
+    await createNotification(
+      user, 
+      'Role Updated', 
+      `Your account has been ${action === 'promote' ? 'promoted to Analyst' : 'updated to User'}.`, 
+      'security'
+    );
+
+    res.json({ message: `User ${email} successfully ${action}`, user: { email: user.email, role: user.role } });
   } catch (error) { next(error); }
 };
 
@@ -88,7 +101,7 @@ exports.manageAnalyst = async (req, res, next) => {
 exports.getAnalysts = async (req, res, next) => {
   try {
     const analysts = await User.find({ role: 'Analyst' })
-      .select('name email isPaused pausedUntil isProfileConfirmed nationalIdUrl verificationSelfieUrl avatar emailVerified');
+      .select('name email phoneNumber isPaused pausedUntil isProfileConfirmed nationalIdUrl verificationSelfieUrl avatar emailVerified');
     res.json(analysts);
   } catch (error) { next(error); }
 };
@@ -127,10 +140,58 @@ exports.confirmAnalystProfile = async (req, res, next) => {
     const user = await User.findById(userId);
     if (!user || user.role !== 'Analyst') return res.status(404).json({ message: "Analyst not found" });
 
+    // REQUIREMENT: Check for phone number, ID, and Selfie
+    if (!user.phoneNumber || !user.nationalIdUrl || !user.verificationSelfieUrl) {
+      return res.status(400).json({ 
+        message: "Compliance Incomplete", 
+        detail: "Analyst must have Phone Number, National ID, and Verification Selfie uploaded." 
+      });
+    }
+
     user.isProfileConfirmed = true;
     await user.save();
 
+    await createNotification(user, 'Profile Confirmed', 'Your analyst profile has been verified. You can now start evaluating projects!', 'security');
+
     res.json({ message: "Analyst profile confirmed successfully", isProfileConfirmed: true });
+  } catch (error) { next(error); }
+};
+
+// Unconfirm Analyst Profile
+exports.unconfirmAnalystProfile = async (req, res, next) => {
+  try {
+    const { userId } = req.body;
+    const user = await User.findById(userId);
+    if (!user || user.role !== 'Analyst') return res.status(404).json({ message: "Analyst not found" });
+
+    user.isProfileConfirmed = false;
+    await user.save();
+
+    await createNotification(user, 'Profile Access Revoked', 'Your profile confirmation has been reversed by an admin. Please contact support.', 'security');
+
+    res.json({ message: "Analyst profile unconfirmed successfully", isProfileConfirmed: false });
+  } catch (error) { next(error); }
+};
+
+// Update Analyst Info (Admin only)
+exports.updateAnalyst = async (req, res, next) => {
+  try {
+    const { userId, name, email, phoneNumber } = req.body;
+    const user = await User.findById(userId);
+    if (!user || user.role !== 'Analyst') return res.status(404).json({ message: "Analyst not found" });
+
+    if (name) user.name = name;
+    if (phoneNumber) user.phoneNumber = phoneNumber;
+    
+    if (email && email !== user.email) {
+      const exists = await User.findOne({ email });
+      if (exists) return res.status(400).json({ message: "Email already in use" });
+      user.email = email;
+      user.emailVerified = false; // Reset verification if email changes
+    }
+
+    await user.save();
+    res.json({ message: "Analyst updated successfully", user });
   } catch (error) { next(error); }
 };
 
@@ -195,6 +256,113 @@ exports.getAnalyticsRequests = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
+// 9. Get all users in the system
+exports.getUsers = async (req, res, next) => {
+  try {
+    const users = await User.find({}, 'name email role fcmToken');
+    res.json(users);
+  } catch (error) { next(error); }
+};
+
+// 10. Send a manual notification to a specific user
+exports.sendNotificationToUser = async (req, res, next) => {
+  try {
+    const { userId, title, body, type } = req.body;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    await createNotification(
+      user,
+      title || "System Alert",
+      body || "This is a manual notification from Admin.",
+      type || "admin_broadcast"
+    );
+
+    res.json({ message: "Notification sent successfully" });
+  } catch (error) { next(error); }
+};
+
+// 11. Broadcast Notification to roles
+exports.broadcastNotification = async (req, res, next) => {
+  try {
+    const { role, title, body } = req.body; // role: 'Admin', 'Analyst', 'User', or 'All'
+    
+    let query = {};
+    if (role && role !== 'All') {
+      query.role = role;
+    }
+
+    const users = await User.find(query);
+    
+    for (const user of users) {
+      await createNotification(
+        user,
+        title || "Broadcast Alert",
+        body || "Important announcement from SkillMart Admin.",
+        'admin_broadcast'
+      );
+    }
+
+    res.json({ message: `Broadcast sent to ${users.length} users.` });
+  } catch (error) { next(error); }
+};
+
+// 12. Send Newsletter (Respects subscriptions & preferences)
+exports.sendNewsletter = async (req, res, next) => {
+  try {
+    const { title, body } = req.body;
+    console.log(`📣 Dispatching newsletter: "${title}"`);
+    
+    // Find all users subscribed to newsletter
+    const users = await User.find({ isSubscribedToNewsletter: true });
+    console.log(`👥 Found ${users.length} subscribers.`);
+
+    const logoUrl = await getLogoUrl();
+    
+    let successCount = 0;
+    for (const user of users) {
+      try {
+        // 1. Tray (Undebatable - always saved to DB)
+        await Notification.create({
+          userId: user._id,
+          title,
+          message: body,
+          type: 'newsletter',
+        });
+
+        // 2. Push (If preferred)
+        if (user.newsletterPreferences.push && user.fcmToken) {
+          await sendPushNotification(user.fcmToken, title, body, {}, 'newsletter');
+        }
+
+        // 3. Email (If preferred)
+        if (user.newsletterPreferences.email && user.email) {
+          const html = getHtmlTemplate(title, `<p>${body}</p>`, logoUrl);
+          await sendMail(user.email, title, body, html);
+        }
+        successCount++;
+      } catch (err) {
+        console.error(`❌ Failed to send newsletter to ${user.email}:`, err.message);
+      }
+    }
+
+    res.json({ message: `Newsletter dispatched! Successfully sent to ${successCount} out of ${users.length} subscribers.` });
+  } catch (error) { 
+    console.error('🔥 Fatal error in sendNewsletter:', error);
+    next(error); 
+  }
+};
+
+// 13. Get all dispatched notifications history
+exports.getNotificationsHistory = async (req, res, next) => {
+  try {
+    const notifications = await Notification.find()
+      .populate('userId', 'name email role')
+      .sort({ createdAt: -1 });
+    res.json(notifications);
+  } catch (error) { next(error); }
+};
+
 // 8. Update Analytics Access Status (Grant/Deny)
 exports.updateAnalyticsRequestStatus = async (req, res, next) => {
   try {
@@ -208,6 +376,16 @@ exports.updateAnalyticsRequestStatus = async (req, res, next) => {
 
     request.status = status;
     await project.save();
+
+    // Notify User
+    const user = await User.findById(request.userId);
+    if (user) {
+      const title = status === 'granted' ? 'Analytics Access Granted!' : 'Analytics Request Update';
+      const body = status === 'granted' 
+        ? `You can now view the premium analytics for "${project.title}".`
+        : `Your request for analytics on "${project.title}" was not approved.`;
+      await createNotification(user, title, body, 'project_update', project._id);
+    }
 
     res.json({ message: `Access request ${status} successfully.`, status });
   } catch (error) { next(error); }

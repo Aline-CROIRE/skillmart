@@ -10,7 +10,10 @@ const analystRoutes = require('./routes/analystRoutes');
 const marketRoutes = require('./routes/marketRoutes');
 const chatRoutes = require('./routes/chatRoutes'); // NEW
 const adminRoutes = require('./routes/adminRoutes'); // NEW
+const notificationRoutes = require('./routes/notificationRoutes'); // NEW
 const testRoutes = require('./routes/testRoutes'); // TEMPORARY TEST
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpecs = require('./config/swaggerConfig');
 
 const app = express();
 
@@ -27,7 +30,9 @@ app.use('/api/analyst', analystRoutes);
 app.use('/api/market', marketRoutes);
 app.use('/api/chat', chatRoutes); // <--- FIXED: This solves the 404
 app.use('/api/admin', adminRoutes); // NEW
+app.use('/api/notifications', notificationRoutes); // NEW
 app.use('/api/test', testRoutes); // TEMPORARY TEST
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 
 app.get('/health', (req, res) => res.status(200).json({ status: 'UP' }));
 app.use(errorHandler);

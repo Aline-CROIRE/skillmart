@@ -5,6 +5,7 @@ import 'package:http_parser/http_parser.dart';
 import 'package:file_picker/file_picker.dart';
 import '../config/api_config.dart';
 import '../models/project_model.dart';
+import '../models/notification_model.dart';
 
 class ApiService {
   static String get baseUrl => ApiConfig.baseUrl;
@@ -24,10 +25,11 @@ class ApiService {
     } catch (e) { return null; }
   }
 
-  Future<Map<String, dynamic>?> register(String name, String email, String password, String role, {String? fcmToken}) async {
+  Future<Map<String, dynamic>?> register(String name, String email, String password, String role, {String? fcmToken, String? phoneNumber}) async {
     try {
       final body = {'name': name, 'email': email, 'password': password, 'role': role};
       if (fcmToken != null) body['fcmToken'] = fcmToken;
+      if (phoneNumber != null && phoneNumber.trim().isNotEmpty) body['phoneNumber'] = phoneNumber.trim();
       final res = await http.post(Uri.parse('$baseUrl/auth/register'), headers: _headers(null), body: jsonEncode(body));
       return res.statusCode == 201 ? jsonDecode(res.body) : null;
     } catch (e) { return null; }
@@ -40,27 +42,16 @@ class ApiService {
     } catch (e) { return null; }
   }
 
-  Future<Map<String, dynamic>> updateProfileInfo(
-    String token, {
-    String? name,
-    String? bio,
-    String? email,
-  }) async {
-    final body = <String, dynamic>{};
-    if (name != null) body['name'] = name;
-    if (bio != null) body['bio'] = bio;
-    if (email != null) body['email'] = email;
-
+  Future<Map<String, dynamic>> updateProfileInfo(Map<String, dynamic> data, String token) async {
     final res = await http.patch(
       Uri.parse('$baseUrl/auth/profile/info'),
       headers: _headers(token),
-      body: jsonEncode(body),
+      body: jsonEncode(data),
     );
-    final data = jsonDecode(res.body);
-    if (res.statusCode == 200) return data;
-    throw data['message'] ?? 'Failed to update profile';
+    final resData = jsonDecode(res.body);
+    if (res.statusCode == 200) return resData;
+    throw resData['message'] ?? 'Failed to update profile';
   }
-
   Map<String, dynamic> _parseJsonBody(String body) {
     if (body.isEmpty) return {};
     return jsonDecode(body) as Map<String, dynamic>;
@@ -266,6 +257,16 @@ class ApiService {
     } catch (e) { return null; }
   }
 
+  Future<bool> logout(String token) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/logout'),
+        headers: _headers(token),
+      );
+      return res.statusCode == 200;
+    } catch (e) { return false; }
+  }
+
   Future<Map<String, dynamic>?> updateAvatar(PlatformFile file, String token) async {
     try {
       var request = http.MultipartRequest('PATCH', Uri.parse('$baseUrl/auth/profile'));
@@ -366,6 +367,39 @@ class ApiService {
     throw data['message'] ?? 'Failed to confirm analyst profile';
   }
 
+  Future<bool> unconfirmAnalystProfile(String userId, String token) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/admin/unconfirm-profile'),
+        headers: _headers(token),
+        body: jsonEncode({'userId': userId}),
+      );
+      return res.statusCode == 200;
+    } catch (e) { return false; }
+  }
+
+  Future<bool> updateAnalyst({
+    required String token,
+    required String userId,
+    String? name,
+    String? email,
+    String? phoneNumber,
+  }) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/admin/update-analyst'),
+        headers: _headers(token),
+        body: jsonEncode({
+          'userId': userId,
+          if (name != null) 'name': name,
+          if (email != null) 'email': email,
+          if (phoneNumber != null) 'phoneNumber': phoneNumber,
+        }),
+      );
+      return res.statusCode == 200;
+    } catch (e) { return false; }
+  }
+
   Future<Map<String, dynamic>> uploadNationalId(PlatformFile file, String token) async {
     final uri = Uri.parse('$baseUrl/auth/profile/national-id');
     final request = http.MultipartRequest('PATCH', uri);
@@ -386,5 +420,70 @@ class ApiService {
     final res = await http.Response.fromStream(streamRes);
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw jsonDecode(res.body)['message'] ?? 'Failed to upload selfie';
+  }
+
+  // Notifications
+  Future<List<AppNotification>> getNotifications(String token) async {
+    final res = await http.get(Uri.parse('$baseUrl/notifications'), headers: _headers(token));
+    if (res.statusCode == 200) {
+      final List data = jsonDecode(res.body);
+      return data.map((n) => AppNotification.fromJson(n)).toList();
+    }
+    return [];
+  }
+
+  Future<void> markNotificationAsRead(String id, String token) async {
+    await http.patch(Uri.parse('$baseUrl/notifications/$id/read'), headers: _headers(token));
+  }
+
+  Future<void> markAllNotificationsAsRead(String token) async {
+    await http.patch(Uri.parse('$baseUrl/notifications/read-all'), headers: _headers(token));
+  }
+
+  Future<int> getUnreadNotificationCount(String token) async {
+    final res = await http.get(Uri.parse('$baseUrl/notifications/unread-count'), headers: _headers(token));
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body)['count'] ?? 0;
+    }
+    return 0;
+  }
+
+  Future<bool> sendBroadcast({required String token, required String role, required String title, required String body}) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/admin/broadcast'),
+        headers: _headers(token),
+        body: jsonEncode({'role': role, 'title': title, 'body': body}),
+      );
+      return res.statusCode == 200;
+    } catch (e) { return false; }
+  }
+
+  Future<bool> sendNewsletter({required String token, required String title, required String body}) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/admin/newsletter'),
+        headers: _headers(token),
+        body: jsonEncode({'title': title, 'body': body}),
+      );
+      return res.statusCode == 200;
+    } catch (e) { return false; }
+  }
+
+  Future<List<dynamic>> getNotificationsHistory(String token) async {
+    final res = await http.get(Uri.parse('$baseUrl/admin/notifications-history'), headers: _headers(token));
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    throw 'Failed to load notification history';
+  }
+
+  Future<bool> submitFeedback(int rating, String comment, String token) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/feedback'),
+        headers: _headers(token),
+        body: jsonEncode({'rating': rating, 'comment': comment}),
+      );
+      return res.statusCode == 201;
+    } catch (e) { return false; }
   }
 }

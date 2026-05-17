@@ -18,6 +18,7 @@ const projectSchema = new mongoose.Schema({
   // Project Type details
   projectType: { type: String, enum: ['Business Idea', 'Shareholder Seeking', 'Operational'], default: 'Business Idea' },
   externalLink: { type: String },
+  rdbRegistrationNumber: { type: String },
   proposalUrl: { type: String },
   rdbProofUrl: { type: String },
   incomeStatementUrl: { type: String },
@@ -35,7 +36,7 @@ const projectSchema = new mongoose.Schema({
   // Review Pipeline
   status: { 
     type: String, 
-    enum: ['pending', 'under_review', 'pending_approval', 'approved', 'rejected', 'needs_changes'], 
+    enum: ['pending', 'under_review', 'pending_approval', 'approved', 'rejected', 'needs_changes', 'resubmitted'], 
     default: 'pending' 
   },
   analystId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

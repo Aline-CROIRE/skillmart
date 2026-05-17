@@ -18,6 +18,7 @@ class Project {
   final String linkedinUrl;
   final String projectType;
   final String externalLink;
+  final String rdbRegistrationNumber;
   final String proposalUrl;
   final String rdbProofUrl;
   final String incomeStatementUrl;
@@ -51,6 +52,7 @@ class Project {
     this.linkedinUrl = "",
     this.projectType = "Business Idea",
     this.externalLink = "",
+    this.rdbRegistrationNumber = "",
     this.proposalUrl = "",
     this.rdbProofUrl = "",
     this.incomeStatementUrl = "",
@@ -97,6 +99,7 @@ class Project {
       linkedinUrl: json['linkedinUrl']?.toString() ?? '',
       projectType: json['projectType']?.toString() ?? 'Business Idea',
       externalLink: json['externalLink']?.toString() ?? '',
+      rdbRegistrationNumber: json['rdbRegistrationNumber']?.toString() ?? '',
       proposalUrl: json['proposalUrl']?.toString() ?? '',
       rdbProofUrl: json['rdbProofUrl']?.toString() ?? '',
       incomeStatementUrl: json['incomeStatementUrl']?.toString() ?? '',

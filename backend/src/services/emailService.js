@@ -1,13 +1,9 @@
 const nodemailer = require('nodemailer');
+const SystemConfig = require('../models/SystemConfig');
 
 const gmailUser = process.env.GMAIL_USER;
 const gmailPass = process.env.GMAIL_APP_PASSWORD;
 const resendKey = process.env.RESEND_API_KEY;
-
-console.log('--- Email Service Init ---');
-console.log('GMAIL_USER found:', !!gmailUser);
-console.log('GMAIL_APP_PASSWORD found:', !!gmailPass);
-console.log('RESEND_API_KEY found:', !!resendKey);
 
 let transporter = null;
 if (gmailUser && gmailPass) {
@@ -20,15 +16,10 @@ if (gmailUser && gmailPass) {
       user: gmailUser,
       pass: gmailPass,
     },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
   });
-} else if (!resendKey) {
-  console.warn('SMTP or Resend credentials missing. Email delivery disabled.');
 }
 
-async function sendViaResend(to, subject, text) {
+async function sendViaResend(to, subject, text, html = null) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return null;
 
@@ -39,18 +30,17 @@ async function sendViaResend(to, subject, text) {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ from, to: [to], subject, text }),
+    body: JSON.stringify({ from, to: [to], subject, text, html: html || text }),
   });
 
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`Resend error (${response.status}): ${body}`);
   }
-
   return true;
 }
 
-const getHtmlTemplate = (title, body) => `
+const getHtmlTemplate = (title, body, logoUrl = null) => `
 <!DOCTYPE html>
 <html>
 <head>
@@ -60,18 +50,22 @@ const getHtmlTemplate = (title, body) => `
     body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f7f9; margin: 0; padding: 0; }
     .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
     .header { background-color: #1e3a8a; padding: 40px 30px; text-align: center; }
-    .logo-box { background: white; width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; }
+    .logo-box { background: white; width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .logo-img { width: 100%; height: 100%; object-fit: cover; }
     .logo-text { font-weight: bold; color: #1e3a8a; font-size: 24px; }
     .header h1 { color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 1px; text-transform: uppercase; }
     .content { padding: 40px; color: #334155; line-height: 1.6; }
     .content h2 { color: #1e293b; margin-top: 0; }
     .footer { background-color: #f8fafc; padding: 20px; text-align: center; color: #94a3b8; font-size: 12px; }
+    .code { font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #1e3a8a; margin: 20px 0; text-align: center; padding: 15px; background: #f1f5f9; border-radius: 8px; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo-box"><span class="logo-text">SM</span></div>
+      <div class="logo-box">
+        ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo-img">` : '<span class="logo-text">SM</span>'}
+      </div>
       <h1>SkillMart</h1>
     </div>
     <div class="content">
@@ -87,6 +81,17 @@ const getHtmlTemplate = (title, body) => `
 </body>
 </html>
 `;
+
+const getLogoUrl = async () => {
+  try {
+    const config = await SystemConfig.findOne({ key: 'system_logo_url' });
+    return config ? config.value : null;
+  } catch (e) { return null; }
+};
+
+exports.getHtmlTemplate = getHtmlTemplate;
+exports.getLogoUrl = getLogoUrl;
+exports.sendMail = sendMail;
 
 async function sendMail(to, subject, text, html = null) {
   if (process.env.RESEND_API_KEY) {
@@ -117,7 +122,8 @@ exports.sendSubmissionConfirmation = async (userEmail, userName, projectName) =>
     <p>An expert analyst will review your project shortly. You will receive an email and push notification once the evaluation is complete.</p>
     <p>Thank you for choosing SkillMart!</p>
   `;
-  const html = getHtmlTemplate("Submission Received", body);
+  const logoUrl = await getLogoUrl();
+  const html = getHtmlTemplate("Submission Received", body, logoUrl);
 
   try {
     await sendMail(userEmail, subject, text, html);
@@ -139,7 +145,8 @@ exports.sendVerificationEmail = async (userEmail, userName, code) => {
     <div class="code">${code}</div>
     <p>This code expires in 15 minutes. If you did not request this, you can safely ignore this email.</p>
   `;
-  const html = getHtmlTemplate("Email Verification", body);
+  const logoUrl = await getLogoUrl();
+  const html = getHtmlTemplate("Email Verification", body, logoUrl);
 
   try {
     await sendMail(userEmail, subject, text, html);
@@ -161,7 +168,8 @@ exports.sendPasswordResetEmail = async (userEmail, userName, code) => {
     <div class="code">${code}</div>
     <p>This code expires in 15 minutes. If you did not request this, please ensure your account is secure.</p>
   `;
-  const html = getHtmlTemplate("Password Recovery", body);
+  const logoUrl = await getLogoUrl();
+  const html = getHtmlTemplate("Password Recovery", body, logoUrl);
 
   try {
     await sendMail(userEmail, subject, text, html);
@@ -193,7 +201,8 @@ exports.sendAnalystCredentialsEmail = async (userEmail, userName, password) => {
     </ol>
     <p>Once your profile is confirmed by the Super Admin, you can start evaluating projects.</p>
   `;
-  const html = getHtmlTemplate("Welcome to the Team", body);
+  const logoUrl = await getLogoUrl();
+  const html = getHtmlTemplate("Welcome to the Team", body, logoUrl);
 
   try {
     await sendMail(userEmail, subject, text, html);
@@ -209,6 +218,8 @@ exports.sendNotificationEmail = async (userEmail, projectName, status) => {
   try {
     let subject = '';
     let text = '';
+    let html = '';
+    const logoUrl = await getLogoUrl();
 
     if (status === 'approved') {
       subject = `Project Approved: Analytics for ${projectName} are out now!`;
@@ -218,7 +229,7 @@ exports.sendNotificationEmail = async (userEmail, projectName, status) => {
         <p>Exciting news! Analytics for <strong>"${projectName}"</strong> are now available.</p>
         <p>Our experts have completed their evaluation. You can now view the full data insights and performance score in the app.</p>
       `;
-      html = getHtmlTemplate("Project Approved", bodyContent);
+      html = getHtmlTemplate("Project Approved", bodyContent, logoUrl);
 
     } else if (status === 'rejected') {
       subject = `Update on Project: ${projectName}`;
@@ -228,7 +239,7 @@ exports.sendNotificationEmail = async (userEmail, projectName, status) => {
         <p>We are writing to inform you that the project <strong>"${projectName}"</strong> has been declined following our expert review.</p>
         <p>While this specific project didn't meet our criteria, you can find other high-potential opportunities in the Explore section.</p>
       `;
-      html = getHtmlTemplate("Project Update", bodyContent);
+      html = getHtmlTemplate("Project Update", bodyContent, logoUrl);
 
     } else if (status === 'needs_changes') {
       subject = `Action Required: Review Requested for ${projectName}`;
@@ -238,7 +249,7 @@ exports.sendNotificationEmail = async (userEmail, projectName, status) => {
         <p>An analyst has reviewed your submission for <strong>"${projectName}"</strong> and requested some additional information or changes.</p>
         <p>Please review the feedback and resubmit your project to continue the evaluation process.</p>
       `;
-      html = getHtmlTemplate("Action Required", bodyContent);
+      html = getHtmlTemplate("Action Required", bodyContent, logoUrl);
     }
 
     if (!subject) return;
@@ -247,5 +258,28 @@ exports.sendNotificationEmail = async (userEmail, projectName, status) => {
     console.log(`Notification email (${status}) sent to ${userEmail}`);
   } catch (error) {
     console.error('Error sending email:', error);
+  }
+};
+
+exports.sendSecurityAlertEmail = async (userEmail, title, message) => {
+  try {
+    const subject = `Security Alert: ${title}`;
+    const text = `Security Alert: ${title}\n\n${message}\n\nIf you did not expect this, please secure your account immediately.`;
+    
+    const body = `
+      <p style="color: #e11d48; font-weight: bold;">Security Alert</p>
+      <p><strong>${title}</strong></p>
+      <p>${message}</p>
+      <p style="margin-top: 20px; font-size: 13px; background: #fff1f2; padding: 15px; border-radius: 8px; border-left: 4px solid #e11d48;">
+        If you did not authorize this action, please contact support or reset your password immediately to protect your account.
+      </p>
+    `;
+    const logoUrl = await getLogoUrl();
+    const html = getHtmlTemplate("Security Notification", body, logoUrl);
+
+    await sendMail(userEmail, subject, text, html);
+    console.log(`Security email sent to ${userEmail}`);
+  } catch (error) {
+    console.error('Error sending security email:', error);
   }
 };

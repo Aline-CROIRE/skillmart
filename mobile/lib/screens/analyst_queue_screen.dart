@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../theme.dart';
 import 'analyst_preview_screen.dart';
 import 'analyst_audit_screen.dart';
+import '../widgets/notification_bell.dart';
 
 class AnalystQueueScreen extends StatefulWidget {
   const AnalystQueueScreen({super.key});
@@ -121,6 +122,10 @@ class _AnalystQueueScreenState extends State<AnalystQueueScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SliverAppBar(
       expandedHeight: 180, pinned: true, elevation: 0,
+      actions: [
+        NotificationBell(color: isDark ? Colors.white : Colors.black),
+        const SizedBox(width: 10),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: BoxDecoration(

@@ -2,6 +2,7 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 const { sendSubmissionConfirmation } = require('../services/emailService');
+const { createNotification } = require('../services/notificationService');
 
 exports.createProject = async (req, res) => {
   try {
@@ -18,9 +19,18 @@ exports.createProject = async (req, res) => {
 
     // Notify seller
     const user = await User.findById(sellerId);
-    if (user && user.email) {
-      sendSubmissionConfirmation(user.email, user.name, project.title).catch(err => 
-        console.error('Submission email failed:', err)
+    if (user) {
+      if (user.email) {
+        sendSubmissionConfirmation(user.email, user.name, project.title).catch(err => 
+          console.error('Submission email failed:', err)
+        );
+      }
+      await createNotification(
+        user,
+        'Project Submitted',
+        `Your project "${project.title}" has been successfully submitted and is now in the queue for expert review.`,
+        'project_update',
+        project._id
       );
     }
 
@@ -29,21 +39,37 @@ exports.createProject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 exports.updateProject = async (req, res) => {
   try {
-    const project = await Project.findByIdAndUpdate(
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
+    const newStatus = project.analystId ? 'resubmitted' : 'pending';
+
+    const updatedProject = await Project.findByIdAndUpdate(
       req.params.id,
       { 
         ...req.body,
-        status: 'pending', 
+        status: newStatus, 
         reviewNote: "" 
       },
       { new: true }
-    );
+    ).populate('analystId');
 
-    if (!project) return res.status(404).json({ message: "Project not found" });
-    res.json(project);
+    if (!updatedProject) return res.status(404).json({ message: "Project not found" });
+
+    // Notify Analyst if they are assigned
+    if (updatedProject.analystId) {
+      await createNotification(
+        updatedProject.analystId,
+        'Project Resubmitted',
+        `The owner has resubmitted "${updatedProject.title}" with updates. Please verify the changes.`,
+        'project_update',
+        updatedProject._id
+      );
+    }
+
+    res.json(updatedProject);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -51,9 +77,40 @@ exports.updateProject = async (req, res) => {
 
 exports.getAllProjects = async (req, res) => {
   try {
-    const projects = await Project.find({ status: 'approved' })
+    const userId = req.user?._id?.toString();
+    const isStaff = req.user?.role === 'Admin' || req.user?.role === 'Analyst';
+
+    let query = { status: { $ne: 'rejected' } };
+    if (userId) {
+      if (isStaff) {
+        query = {}; // Staff sees everything
+      } else {
+        query = {
+          $or: [
+            { status: { $ne: 'rejected' } },
+            { sellerId: userId }
+          ]
+        };
+      }
+    }
+
+    let projects = await Project.find(query)
       .populate('sellerId', 'name')
       .sort({ createdAt: -1 });
+
+    // Status Masking Logic
+    projects = projects.map(p => {
+      const pObj = p.toObject();
+      const isCreator = userId && pObj.sellerId?._id?.toString() === userId;
+      
+      // If not creator and not staff, mask status
+      if (!isCreator && !isStaff) {
+        if (pObj.status !== 'approved') {
+          pObj.status = 'pending';
+        }
+      }
+      return pObj;
+    });
 
     res.json(projects);
   } catch (error) {
@@ -112,7 +169,17 @@ exports.getProjectById = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id).populate('sellerId', 'name');
     if (!project) return res.status(404).json({ message: "Project not found" });
-    res.json(project);
+
+    const pObj = project.toObject();
+    const userId = req.user?._id?.toString();
+    const isStaff = req.user?.role === 'Admin' || req.user?.role === 'Analyst';
+    const isCreator = userId && pObj.sellerId?._id?.toString() === userId;
+
+    if (!isCreator && !isStaff && pObj.status !== 'approved') {
+      pObj.status = 'pending';
+    }
+
+    res.json(pObj);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -131,6 +198,15 @@ exports.requestAnalyticsAccess = async (req, res) => {
 
     project.analyticsAccessRequests.push({ userId: req.user._id, status: 'pending' });
     await project.save();
+
+    // Notify user of request receipt
+    await createNotification(
+      req.user,
+      'Analytics Request Received',
+      `Your request for analytics access on "${project.title}" has been sent to the Admin for approval.`,
+      'security',
+      project._id
+    );
 
     res.json({ message: "Request sent. Waiting for Admin approval.", status: 'pending' });
   } catch (error) {

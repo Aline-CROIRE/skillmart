@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_windowmanager_plus/flutter_windowmanager_plus.dart';
 import 'analyst_audit_screen.dart';
 import 'file_view_screen.dart';
 import '../models/project_model.dart';
@@ -24,7 +25,33 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
 
 
   @override
-  void initState() { super.initState(); _loadIdentity(); }
+  void initState() { 
+    super.initState(); 
+    _loadIdentity(); 
+    _secureScreen();
+  }
+
+  @override
+  void dispose() {
+    _unsecureScreen();
+    super.dispose();
+  }
+
+  Future<void> _secureScreen() async {
+    try {
+      await FlutterWindowManagerPlus.addFlags(FlutterWindowManagerPlus.FLAG_SECURE);
+    } catch (e) {
+      debugPrint("Could not set secure flag: $e");
+    }
+  }
+
+  Future<void> _unsecureScreen() async {
+    try {
+      await FlutterWindowManagerPlus.clearFlags(FlutterWindowManagerPlus.FLAG_SECURE);
+    } catch (e) {
+      debugPrint("Could not clear secure flag: $e");
+    }
+  }
 
   void _loadIdentity() async {
     final prefs = await SharedPreferences.getInstance();
@@ -69,7 +96,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
       ? widget.project.fileUrl 
       : "https://skillmart-api.onrender.com${widget.project.fileUrl}");
     if (await canLaunchUrl(url)) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+      await launchUrl(url, mode: LaunchMode.inAppBrowserView);
     } else {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Could not open file")));
     }
@@ -172,22 +199,50 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             Text(widget.project.description, style: TextStyle(fontSize: 15, height: 1.6, color: colorScheme.onSurface.withOpacity(0.8))),
             
             // Full details for owner or approved projects
-            if (isApproved || isMyProject) ...[
+            if (isApproved || isMyProject || isStaff) ...[
               const SizedBox(height: 25),
               _buildInfoRow("Ownership", widget.project.ownerType, Icons.person, colorScheme),
+              if (widget.project.ownerName.isNotEmpty)
+                _buildInfoRow(widget.project.ownerType == "Individual" ? "Owner Name" : "Company Name", widget.project.ownerName, Icons.badge, colorScheme),
+              if (widget.project.ceoName.isNotEmpty)
+                _buildInfoRow("CEO Name", widget.project.ceoName, Icons.person_outline, colorScheme),
               _buildInfoRow("Type", widget.project.projectType, Icons.category, colorScheme),
-              if (widget.project.isShareholderSeeking)
-                _buildInfoRow("Shareholders", "Seeking ${widget.project.maxShareholders}", Icons.groups, colorScheme),
+              if (widget.project.externalLink.isNotEmpty)
+                _buildInfoRow("External Link", widget.project.externalLink, Icons.link, colorScheme),
               if (widget.project.linkedinUrl.isNotEmpty)
                 _buildInfoRow("LinkedIn", widget.project.linkedinUrl, Icons.link, colorScheme),
+              if (widget.project.rdbRegistrationNumber.isNotEmpty)
+                _buildInfoRow("RDB Registration Number", widget.project.rdbRegistrationNumber, Icons.business_center, colorScheme),
+                
+              if (widget.project.isShareholderSeeking) ...[
+                const SizedBox(height: 15),
+                Text("Shareholder Details", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+                const SizedBox(height: 10),
+                _buildInfoRow("Max Shareholders", "${widget.project.maxShareholders}", Icons.groups, colorScheme),
+                _buildInfoRow("Total Shares Available", "${widget.project.totalSharesAvailable}%", Icons.pie_chart, colorScheme),
+                _buildInfoRow("Minimum Share", "${widget.project.minShare}%", Icons.percent, colorScheme),
+                _buildInfoRow("Share Unit Value", "RWF ${widget.project.shareValue}", Icons.money, colorScheme),
+              ],
+              
+              if (widget.project.proposalUrl.isNotEmpty || widget.project.rdbProofUrl.isNotEmpty || widget.project.incomeStatementUrl.isNotEmpty || widget.project.rraTaxHistoryUrl.isNotEmpty || widget.project.rraClearanceUrl.isNotEmpty || widget.project.pitchVideoUrl.isNotEmpty) ...[
+                const SizedBox(height: 25),
+                Text("Verification Documents", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
+                const SizedBox(height: 10),
+                if (widget.project.proposalUrl.isNotEmpty) _buildFileRow("Proposal Document", widget.project.proposalUrl, Icons.description, colorScheme),
+                if (widget.project.rdbProofUrl.isNotEmpty) _buildFileRow("RDB Certificate", widget.project.rdbProofUrl, Icons.verified, colorScheme),
+                if (widget.project.incomeStatementUrl.isNotEmpty) _buildFileRow("Income Statement", widget.project.incomeStatementUrl, Icons.account_balance_wallet, colorScheme),
+                if (widget.project.rraTaxHistoryUrl.isNotEmpty) _buildFileRow("Tax History", widget.project.rraTaxHistoryUrl, Icons.history, colorScheme),
+                if (widget.project.rraClearanceUrl.isNotEmpty) _buildFileRow("Tax Clearance", widget.project.rraClearanceUrl, Icons.receipt_long, colorScheme),
+                if (widget.project.pitchVideoUrl.isNotEmpty) _buildFileRow("Pitch Video", widget.project.pitchVideoUrl, Icons.video_library, colorScheme),
+              ],
             ],
 
             // Expert Analytics Section
-            if (isApproved && (widget.isOwned || isStaff)) ...[
+            if (isApproved) ...[
               const SizedBox(height: 35),
               const Text("Expert Premium Analytics", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              _buildAnalyticsCard(colorScheme),
+              _buildAnalyticsCard(colorScheme, widget.isOwned || isStaff),
             ],
 
             if (isMyProject && widget.project.reviewNote.isNotEmpty) ...[
@@ -239,12 +294,41 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 18, color: colorScheme.primary),
           const SizedBox(width: 10),
           Text("$label: ", style: TextStyle(fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
-          Text(value, style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7))),
+          Expanded(child: Text(value, style: TextStyle(color: colorScheme.onSurface.withOpacity(0.7)))),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFileRow(String label, String url, IconData icon, ColorScheme colorScheme) {
+    return InkWell(
+      onTap: () async {
+        final uri = Uri.parse(url.startsWith('http') ? url : "https://skillmart-api.onrender.com$url");
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+        } else {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Could not open file")));
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 15),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: colorScheme.primary.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, size: 20, color: colorScheme.primary),
+            ),
+            const SizedBox(width: 15),
+            Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold))),
+            Icon(Icons.open_in_new, size: 16, color: colorScheme.onSurface.withOpacity(0.5)),
+          ],
+        ),
       ),
     );
   }
@@ -321,7 +405,37 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     );
   }
 
-  Widget _buildAnalyticsCard(ColorScheme colorScheme) {
+  Widget _buildAnalyticsCard(ColorScheme colorScheme, bool hasAccess) {
+    if (!hasAccess) {
+      return Container(
+        padding: const EdgeInsets.all(25),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.lock_person_outlined, size: 40, color: Colors.grey),
+            const SizedBox(height: 15),
+            const Text("Premium Analytics Locked", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            const Text(
+              "Full deep-dive expert analysis and valuation documents are hidden until this project is purchased.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+              decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+              child: const Text("PURCHASE TO UNLOCK", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
+
     final bool isStaff = _userRole == 'Admin' || _userRole == 'Analyst';
     if (isStaff) {
        return _analyticsActionBox(

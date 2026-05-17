@@ -40,7 +40,7 @@ exports.claimProject = async (req, res) => {
 };
 
 const { sendNotificationEmail } = require('../services/emailService');
-const { sendPushNotification } = require('../services/notificationService');
+const { createNotification } = require('../services/notificationService');
 
 // ... (previous functions unchanged)
 
@@ -68,18 +68,20 @@ exports.submitDecision = async (req, res) => {
       { new: true }
     ).populate('watchers', 'email fcmToken').populate('sellerId', 'email fcmToken');
 
+    if (!project) return res.status(404).json({ message: "Project not found" });
+
     // Notify Bookmarkers only on REJECTION (Final)
     // Approval notifications happen when Admin makes the final decision
     if (status === 'rejected' && project.watchers && project.watchers.length > 0) {
       for (const user of project.watchers) {
         if (user.email) sendNotificationEmail(user.email, project.title, 'rejected');
-        if (user.fcmToken) {
-          sendPushNotification(
-            user.fcmToken, 
-            'Project Update', 
-            `Project "${project.title}" did not meet the criteria for approval at this time.`
-          );
-        }
+        await createNotification(
+          user, 
+          'Project Update', 
+          `Project "${project.title}" did not meet the criteria for approval at this time.`,
+          'project_update',
+          project._id
+        );
       }
       project.watchers = [];
       await project.save();
@@ -87,15 +89,36 @@ exports.submitDecision = async (req, res) => {
 
     // Notify Owner on Analyst Progress
     if (project.sellerId) {
-      const ownerEmail = project.sellerId.email;
-      const ownerToken = project.sellerId.fcmToken;
-
       if (status === 'pending_approval') {
-        if (ownerEmail) sendNotificationEmail(ownerEmail, project.title, 'pending_approval');
-        if (ownerToken) sendPushNotification(ownerToken, 'Good News!', `Your project "${project.title}" has passed expert review and is awaiting final Admin approval.`);
+        if (project.sellerId.email) sendNotificationEmail(project.sellerId.email, project.title, 'pending_approval');
+        await createNotification(
+          project.sellerId, 
+          'Good News!', 
+          `Your project "${project.title}" has passed expert review and is awaiting final Admin approval.`,
+          'project_update',
+          project._id
+        );
+
+        // NEW: Notify all Admins that a project is ready for sign-off
+        const admins = await User.find({ role: 'Admin' });
+        for (const adminUser of admins) {
+          await createNotification(
+            adminUser,
+            'New Project for Approval',
+            `Analyst has submitted "${project.title}" for final sign-off.`,
+            'admin_broadcast',
+            project._id
+          );
+        }
       } else if (status === 'needs_changes') {
-        if (ownerEmail) sendNotificationEmail(ownerEmail, project.title, 'needs_changes');
-        if (ownerToken) sendPushNotification(ownerToken, 'Action Required!', `An expert has requested a review for your project "${project.title}". Check feedback and resubmit.`);
+        if (project.sellerId.email) sendNotificationEmail(project.sellerId.email, project.title, 'needs_changes');
+        await createNotification(
+          project.sellerId, 
+          'Action Required!', 
+          `An expert has requested a review for your project "${project.title}". Check feedback and resubmit.`,
+          'project_update',
+          project._id
+        );
       }
     }
 

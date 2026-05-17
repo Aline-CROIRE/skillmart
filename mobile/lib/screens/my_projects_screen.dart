@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/project_model.dart';
 import '../services/api_service.dart';
 import 'upload_screen.dart';
+import 'project_details_screen.dart';
 
 class MyProjectsScreen extends StatefulWidget {
   const MyProjectsScreen({super.key});
@@ -13,6 +14,7 @@ class MyProjectsScreen extends StatefulWidget {
 class _MyProjectsScreenState extends State<MyProjectsScreen> {
   final ApiService _api = ApiService();
   List<Project> _myWork = [];
+  Map<String, dynamic>? _userProfile;
   bool _isLoading = true;
 
   @override
@@ -28,8 +30,16 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
       final token = prefs.getString('token') ?? '';
       final userId = prefs.getString('userId') ?? '';
       
+      final profileData = await _api.getProfile(token);
       final data = await _api.getSellerProjects(userId, token);
-      if (mounted) setState(() { _myWork = data; _isLoading = false; });
+      
+      if (mounted) {
+        setState(() { 
+          _userProfile = profileData;
+          _myWork = data; 
+          _isLoading = false; 
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -37,6 +47,11 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    bool isEmailVerified = _userProfile?['emailVerified'] == true;
+    bool hasPhone = _userProfile?['phoneNumber'] != null && _userProfile!['phoneNumber'].toString().isNotEmpty;
+    bool canCreate = isEmailVerified && hasPhone;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -45,21 +60,56 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _myWork.isEmpty
-              ? _buildEmpty(context)
-              : RefreshIndicator(
-                  onRefresh: _fetch,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(20),
-                    itemCount: _myWork.length,
-                    itemBuilder: (context, i) => _projectCard(_myWork[i], context),
+          : Column(
+              children: [
+                if (!canCreate && _userProfile != null)
+                  Container(
+                    margin: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: Colors.red),
+                            SizedBox(width: 10),
+                            Text("Action Required", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text("You must complete your profile to create projects:", style: TextStyle(color: colorScheme.onSurface, fontSize: 13)),
+                        const SizedBox(height: 5),
+                        if (!isEmailVerified)
+                          Text("• Verify your email address", style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 13)),
+                        if (!hasPhone)
+                          Text("• Add a phone number to your profile", style: TextStyle(color: colorScheme.onSurface, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
                   ),
+                Expanded(
+                  child: _myWork.isEmpty && canCreate
+                    ? _buildEmpty(context)
+                    : RefreshIndicator(
+                        onRefresh: _fetch,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(20).copyWith(top: (!canCreate && _userProfile != null) ? 0 : 20),
+                          itemCount: _myWork.length,
+                          itemBuilder: (context, i) => _projectCard(_myWork[i], context),
+                        ),
+                      ),
                 ),
+              ],
+            ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UploadScreen())).then((_) => _fetch()),
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        label: const Text("New Creation", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        icon: const Icon(Icons.add, color: Colors.white),
+        onPressed: canCreate ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UploadScreen())).then((_) => _fetch()) : null,
+        backgroundColor: canCreate ? colorScheme.primary : colorScheme.surfaceVariant,
+        label: Text("New Creation", style: TextStyle(color: canCreate ? Colors.white : colorScheme.onSurfaceVariant.withOpacity(0.5), fontWeight: FontWeight.bold)),
+        icon: Icon(Icons.add, color: canCreate ? Colors.white : colorScheme.onSurfaceVariant.withOpacity(0.5)),
       ),
     );
   }
@@ -76,11 +126,14 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
       color: colorScheme.surface,
       margin: const EdgeInsets.only(bottom: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProjectDetailsScreen(project: p))),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -125,6 +178,7 @@ class _MyProjectsScreenState extends State<MyProjectsScreen> {
             ]
           ],
         ),
+      ),
       ),
     );
   }

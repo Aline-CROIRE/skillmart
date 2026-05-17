@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'file_view_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class TeamManagementScreen extends StatefulWidget {
   const TeamManagementScreen({super.key});
@@ -95,6 +96,87 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
     );
   }
 
+  Future<void> _editAnalyst(dynamic analyst) async {
+    final nameCtrl = TextEditingController(text: analyst['name']);
+    final emailCtrl = TextEditingController(text: analyst['email']);
+    final phoneCtrl = TextEditingController(text: analyst['phoneNumber'] ?? "");
+    bool loading = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text("Edit Analyst Info"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "Full Name")),
+              const SizedBox(height: 10),
+              TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: "Email")),
+              const SizedBox(height: 10),
+              TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: "Phone Number")),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+            loading 
+              ? const CircularProgressIndicator()
+              : ElevatedButton(
+                  onPressed: () async {
+                    setDialogState(() => loading = true);
+                    try {
+                      final prefs = await SharedPreferences.getInstance();
+                      final token = prefs.getString('token') ?? '';
+                      await _api.updateAnalyst(
+                        token: token,
+                        userId: analyst['_id'],
+                        name: nameCtrl.text,
+                        email: emailCtrl.text,
+                        phoneNumber: phoneCtrl.text,
+                      );
+                      if (mounted) {
+                        Navigator.pop(context);
+                        _fetch();
+                      }
+                    } catch (e) { 
+                      _showError(e.toString()); 
+                      setDialogState(() => loading = false);
+                    }
+                  },
+                  child: const Text("SAVE CHANGES"),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _unconfirmProfile(String userId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Reverse Confirmation?"),
+        content: const Text("This will prevent the analyst from evaluating projects. Are you sure?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("CANCEL")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true), 
+            child: const Text("UNCONFIRM")
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await _api.unconfirmAnalystProfile(userId, prefs.getString('token') ?? '');
+        _fetch();
+      } catch (e) { _showError(e.toString()); }
+    }
+  }
+
   Future<void> _togglePause(String userId, bool isCurrentlyPaused) async {
     if (isCurrentlyPaused) {
       // Direct Unpause
@@ -165,14 +247,26 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                   child: ExpansionTile(
                     shape: const RoundedRectangleBorder(side: BorderSide.none),
                     leading: CircleAvatar(
-                      backgroundImage: a['avatar'] != null ? NetworkImage(a['avatar']) : null,
+                      backgroundImage: a['avatar'] != null ? CachedNetworkImageProvider(a['avatar']) : null,
                       child: a['avatar'] == null ? const Icon(Icons.person) : null,
                     ),
-                    title: Text(a['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                    title: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: Text(a['name'], style: const TextStyle(fontWeight: FontWeight.bold))),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          onPressed: () => _editAnalyst(a),
+                          visualDensity: VisualDensity.compact,
+                        )
+                      ],
+                    ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(a['email'], style: const TextStyle(fontSize: 12)),
+                        if (a['phoneNumber'] != null)
+                          Text(a['phoneNumber'], style: const TextStyle(fontSize: 12, color: Colors.blue)),
                         const SizedBox(height: 4),
                         Row(
                           children: [
@@ -192,6 +286,7 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                             const Text("Compliance Checklist", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                             const SizedBox(height: 10),
                             _requirementRow("Email Verified", verified),
+                            _requirementRow("Phone Number Added", a['phoneNumber'] != null),
                             _requirementRow("National ID Uploaded", idUrl != null),
                             _requirementRow("Verification Selfie Uploaded", selfieUrl != null),
                             const Divider(height: 30),
@@ -221,11 +316,11 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                                   width: double.infinity,
                                   child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: (verified && idUrl != null && selfieUrl != null) 
+                                      backgroundColor: (verified && a['phoneNumber'] != null && idUrl != null && selfieUrl != null) 
                                         ? SkillMartTheme.primaryBlue 
                                         : Colors.grey.shade300,
                                     ),
-                                    onPressed: (verified && idUrl != null && selfieUrl != null) 
+                                    onPressed: (verified && a['phoneNumber'] != null && idUrl != null && selfieUrl != null) 
                                       ? () async {
                                         try {
                                           final prefs = await SharedPreferences.getInstance();
@@ -234,6 +329,21 @@ class _TeamManagementScreenState extends State<TeamManagementScreen> {
                                         } catch (e) { _showError(e.toString()); }
                                       } : null,
                                     child: const Text("CONFIRM PROFILE"),
+                                  ),
+                                ),
+                              ),
+                            if (confirmed)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 15),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.red,
+                                      side: const BorderSide(color: Colors.red),
+                                    ),
+                                    onPressed: () => _unconfirmProfile(a['_id']),
+                                    child: const Text("UNCONFIRM PROFILE"),
                                   ),
                                 ),
                               ),

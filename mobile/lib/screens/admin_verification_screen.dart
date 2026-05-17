@@ -4,6 +4,10 @@ import '../models/project_model.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import 'admin_audit_screen.dart';
+import '../widgets/notification_bell.dart';
+import 'admin_broadcast_screen.dart';
+import 'admin_newsletter_screen.dart';
+import 'admin_notification_history_screen.dart';
 
 class AdminVerificationScreen extends StatefulWidget {
   const AdminVerificationScreen({super.key});
@@ -73,6 +77,10 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SliverAppBar(
       expandedHeight: 180, pinned: true, elevation: 0,
+      actions: [
+        NotificationBell(color: isDark ? Colors.white : Colors.black),
+        const SizedBox(width: 10),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
           decoration: BoxDecoration(
@@ -82,10 +90,53 @@ class _AdminVerificationScreenState extends State<AdminVerificationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Admin Panel", style: TextStyle(color: isDark ? Colors.white.withOpacity(0.7) : Colors.black54, fontSize: 16)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Admin Panel", style: TextStyle(color: isDark ? Colors.white.withOpacity(0.7) : Colors.black54, fontSize: 16)),
+                  Row(
+                    children: [
+                      _adminActionBtn(
+                        context, 
+                        "Broadcast", 
+                        Icons.campaign_outlined, 
+                        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminBroadcastScreen()))
+                      ),
+                      const SizedBox(width: 8),
+                      _adminActionBtn(
+                        context, 
+                        "Newsletter", 
+                        Icons.mark_as_unread_outlined, 
+                        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminNewsletterScreen()))
+                      ),
+                    ],
+                  ),
+                ],
+              ),
               Text("Final Approval Hub", style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 26, fontWeight: FontWeight.bold)),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _adminActionBtn(BuildContext context, String label, IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 14, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+          ],
         ),
       ),
     );

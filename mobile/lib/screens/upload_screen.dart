@@ -16,6 +16,7 @@ class UploadScreen extends StatefulWidget {
 class _UploadScreenState extends State<UploadScreen> {
   int _currentStep = 0;
   bool _isLoading = false;
+  Map<String, dynamic>? _userProfile;
 
   // Basic Info
   late TextEditingController _title;
@@ -45,6 +46,7 @@ class _UploadScreenState extends State<UploadScreen> {
   late TextEditingController _totalShares;
   late TextEditingController _minShare;
   late TextEditingController _shareValue;
+  late TextEditingController _rdbReg;
 
   @override
   void initState() {
@@ -66,6 +68,19 @@ class _UploadScreenState extends State<UploadScreen> {
     _totalShares = TextEditingController(text: widget.existingProject?.totalSharesAvailable.toString() ?? "0");
     _minShare = TextEditingController(text: widget.existingProject?.minShare.toString() ?? "0");
     _shareValue = TextEditingController(text: widget.existingProject?.shareValue.toString() ?? "0");
+    _rdbReg = TextEditingController();
+    _fetchProfile();
+  }
+
+  Future<void> _fetchProfile() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+      if (token.isNotEmpty) {
+        final profile = await ApiService().getProfile(token);
+        if (mounted) setState(() => _userProfile = profile);
+      }
+    } catch (e) { debugPrint("Profile fetch failed: $e"); }
   }
 
   Future<String?> _upload(PlatformFile? file, String? currentUrl) async {
@@ -81,6 +96,67 @@ class _UploadScreenState extends State<UploadScreen> {
     setState(() => _isLoading = true);
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token')!;
+
+    // Phone Number Validation
+    final phone = _userProfile?['phoneNumber'];
+    if (phone == null || phone.toString().isEmpty) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        final phoneController = TextEditingController();
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text("Phone Number Required"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Please provide a Rwandan phone number to continue with your submission."),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: "Phone Number",
+                    hintText: "e.g., 078...",
+                    prefixIcon: Icon(Icons.phone),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+              ElevatedButton(
+                onPressed: () async {
+                  if (phoneController.text.trim().isEmpty) return;
+                  
+                  // Disable button while processing
+                  Navigator.pop(context); // close dialog
+                  setState(() => _isLoading = true);
+                  
+                  try {
+                    await ApiService().updateProfileInfo({
+                      'phoneNumber': phoneController.text.trim(),
+                    }, token);
+                    
+                    // Refresh profile and proceed
+                    await _fetchProfile();
+                    _submit(); // resume submission
+                  } catch (e) {
+                    setState(() => _isLoading = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+                    }
+                  }
+                }, 
+                child: const Text("SAVE & CONTINUE")
+              ),
+            ],
+          )
+        );
+      }
+      return;
+    }
 
     String? thumbUrl = await _upload(_thumbnail, widget.existingProject?.thumbnailUrl);
     String? fileUrl = await _upload(_mainFile, widget.existingProject?.fileUrl);
@@ -99,6 +175,7 @@ class _UploadScreenState extends State<UploadScreen> {
       'thumbnailUrl': thumbUrl,
       'fileUrl': fileUrl,
       'externalLink': _externalLink.text,
+      'rdbRegistrationNumber': _projectType == "Shareholder Seeking" ? _rdbReg.text : "",
       'sellerId': prefs.getString('userId'),
       'ownerType': _ownerType,
       'ownerName': _ownerName.text,
@@ -222,9 +299,10 @@ class _UploadScreenState extends State<UploadScreen> {
         _sectionTitle("Core Project Info"),
         _input("Project Name", _title, Icons.title, context),
         _dropdown("Category", _category, ["Select category", "Academic", "Business", "Creative", "Technology", "Professional"], (v) => setState(() => _category = v!)),
-        _filePicker("Thumbnail Image (Identity)", _thumbnail, (f) => setState(() => _thumbnail = f), allowedExtensions: ['jpg', 'jpeg', 'png', 'webp']),
+        _filePicker("Thumbnail Image (Identity)", _thumbnail, (f) => setState(() => _thumbnail = f), allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'], existingUrl: widget.existingProject?.thumbnailUrl),
         _input("Description", _desc, Icons.description, context, lines: 4),
         _input("Project Website / App Link (Optional)", _externalLink, Icons.link, context),
+        _filePicker("Main Project File (PDF/Doc)", _mainFile, (f) => setState(() => _mainFile = f), existingUrl: widget.existingProject?.fileUrl),
       ].animate(interval: 50.ms).fadeIn(duration: 300.ms).slideX(begin: 0.1),
     );
   }
@@ -257,16 +335,16 @@ class _UploadScreenState extends State<UploadScreen> {
           });
         }),
         const SizedBox(height: 20),
-        _filePicker("Main Project Document (Required PDF)", _mainFile, (f) => setState(() => _mainFile = f), allowedExtensions: ['pdf']),
-        if (_projectType == "Business Idea")
-          _filePicker("Pitch/Proposal PDF", _proposalDoc, (f) => setState(() => _proposalDoc = f), allowedExtensions: ['pdf']),
-        if (_projectType != "Business Idea") ...[
-          _filePicker("RDB Registration PDF", _rdbProof, (f) => setState(() => _rdbProof = f), allowedExtensions: ['pdf']),
-          _filePicker("Income Statement PDF", _incomeStmt, (f) => setState(() => _incomeStmt = f), allowedExtensions: ['pdf']),
-          _filePicker("RRA Tax History PDF", _taxHistory, (f) => setState(() => _taxHistory = f), allowedExtensions: ['pdf']),
-          _filePicker("RRA Clearance PDF", _taxClearance, (f) => setState(() => _taxClearance = f), allowedExtensions: ['pdf']),
-        ],
-        _filePicker("Pitching Video (Optional)", _pitchVideo, (f) => setState(() => _pitchVideo = f), allowedExtensions: ['mp4', 'mov', 'avi']),
+        _sectionTitle("Business & Verification Docs"),
+        if (_projectType == "Shareholder Seeking") 
+          _input("RDB Registration Number", _rdbReg, Icons.business, context),
+        
+        _filePicker("Detailed Proposal (PDF)", _proposalDoc, (f) => setState(() => _proposalDoc = f), allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.proposalUrl),
+        _filePicker("RDB Certificate (PDF/Image)", _rdbProof, (f) => setState(() => _rdbProof = f), existingUrl: widget.existingProject?.rdbProofUrl),
+        _filePicker("Income Statement (Optional)", _incomeStmt, (f) => setState(() => _incomeStmt = f), allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.incomeStatementUrl),
+        _filePicker("Tax History (Optional)", _taxHistory, (f) => setState(() => _taxHistory = f), allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.rraTaxHistoryUrl),
+        _filePicker("Tax Clearance (Optional)", _taxClearance, (f) => setState(() => _taxClearance = f), allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.rraClearanceUrl),
+        _filePicker("Pitch Video (Optional MP4)", _pitchVideo, (f) => setState(() => _pitchVideo = f), allowedExtensions: ['mp4', 'mov', 'avi'], existingUrl: widget.existingProject?.pitchVideoUrl),
       ].animate(interval: 50.ms).fadeIn(duration: 300.ms).slideX(begin: 0.1),
     );
   }
@@ -360,7 +438,7 @@ class _UploadScreenState extends State<UploadScreen> {
     ),
   );
 
-  Widget _filePicker(String label, PlatformFile? file, Function(PlatformFile) onPicked, {List<String>? allowedExtensions}) => Padding(
+  Widget _filePicker(String label, PlatformFile? file, Function(PlatformFile) onPicked, {List<String>? allowedExtensions, String? existingUrl}) => Padding(
     padding: const EdgeInsets.only(bottom: 20),
     child: InkWell(
       onTap: () async {
@@ -390,11 +468,11 @@ class _UploadScreenState extends State<UploadScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 12)),
-                  Text(file?.name ?? "No file selected", style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(file?.name ?? (existingUrl != null ? "Existing file saved" : "No file selected"), style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 14)),
                 ],
               ),
             ),
-            if (file != null) const Icon(Icons.check_circle, color: Colors.green, size: 20),
+            if (file != null || existingUrl != null) const Icon(Icons.check_circle, color: Colors.green, size: 20),
           ]
         )
       ),

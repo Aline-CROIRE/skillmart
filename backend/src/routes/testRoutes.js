@@ -29,4 +29,60 @@ router.get('/debug-env', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * tags:
+ *   name: Test
+ *   description: Utility endpoints for testing system features
+ */
+
+const { protect: auth } = require('../middlewares/authMiddleware');
+const notificationService = require('../services/notificationService');
+
+/**
+ * @swagger
+ * /api/test/trigger-push:
+ *   post:
+ *     summary: Trigger a test push notification for yourself
+ *     tags: [Test]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *               type:
+ *                 type: string
+ *                 enum: [project_update, security, wallet, admin_broadcast]
+ *     responses:
+ *       200:
+ *         description: Notification triggered successfully
+ */
+router.post('/trigger-push', auth, async (req, res) => {
+  const { title, message, type } = req.body;
+  
+  try {
+    const notification = await notificationService.createNotification(
+      req.user.id,
+      title || 'Test Notification',
+      message || 'This is a test notification from the SkillMart system.',
+      type || 'project_update'
+    );
+    
+    res.json({ 
+      message: 'Push notification triggered', 
+      notification 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

@@ -7,6 +7,7 @@ import '../main.dart';
 import '../theme.dart';
 import 'home_screen.dart';
 import 'forgot_password_screen.dart';
+import 'email_verification_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -23,6 +24,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _pass = TextEditingController();
   final TextEditingController _confirmPass = TextEditingController();
   final TextEditingController _name = TextEditingController();
+  final TextEditingController _phone = TextEditingController();
   final ApiService _api = ApiService();
 
   Future<void> _submit() async {
@@ -43,7 +45,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
       final res = isLogin 
           ? await _api.login(_email.text, _pass.text, fcmToken: fcmToken)
-          : await _api.register(_name.text, _email.text, _pass.text, "User", fcmToken: fcmToken);
+          : await _api.register(_name.text, _email.text, _pass.text, "User", fcmToken: fcmToken, phoneNumber: _phone.text);
 
       if (mounted && res != null) {
         final prefs = await SharedPreferences.getInstance();
@@ -54,7 +56,11 @@ class _AuthScreenState extends State<AuthScreen> {
         await prefs.setString('userId', res['_id'] ?? '');
         await prefs.setBool('isProfileConfirmed', res['isProfileConfirmed'] == true);
 
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainMenuScreen()));
+        if (!isLogin) {
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const EmailVerificationScreen()));
+        } else {
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainMenuScreen()));
+        }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Invalid Credentials")));
       }
@@ -131,6 +137,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             const SizedBox(height: 20),
                             if (!isLogin) _buildField(_name, "Full Name", Icons.person, false),
                             _buildField(_email, "Email", Icons.email, false),
+                            if (!isLogin) _buildField(_phone, "Phone Number (Optional)", Icons.phone, false),
                             _buildField(_pass, "Password", Icons.lock, true),
                             if (!isLogin) _buildField(_confirmPass, "Confirm Password", Icons.lock_outline, true),
                             if (isLogin) Align(

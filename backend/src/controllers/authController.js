@@ -1,7 +1,9 @@
 const crypto = require('crypto');
+const { createNotification } = require('../services/notificationService');
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/emailService');
+const Feedback = require('../models/Feedback');
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -9,30 +11,19 @@ const generateToken = (id) => {
 
 exports.registerUser = async (req, res) => {
   try {
-    const { name, email, password, role, fcmToken } = req.body;
+    const { name, email, password, role, fcmToken, phoneNumber } = req.body;
     const userExists = await User.findOne({ email });
     if (userExists) return res.status(400).json({ message: "User already exists" });
 
     // Create user
-    const user = await User.create({ name, email, password, role, fcmToken });
-
-    // AUTOMATION: Send verification email immediately
-    const code = String(crypto.randomInt(100000, 1000000));
-    user.emailVerificationCode = code;
-    user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
-    await user.save();
-
-    // Trigger email (don't await to avoid blocking response, or await if you want to ensure delivery)
-    sendVerificationEmail(user.email, user.name, code).catch(err => 
-      console.error('Initial verification email failed:', err)
-    );
+    const user = await User.create({ name, email, password, role, fcmToken, phoneNumber });
 
     res.status(201).json({ 
       _id: user._id, 
       name: user.name, 
       role: user.role, 
       token: generateToken(user._id),
-      message: "Registration successful. Verification email sent." 
+      message: "Registration successful." 
     });
   } catch (error) { res.status(500).json({ message: error.message }); }
 };
@@ -108,6 +99,10 @@ exports.updateProfileInfo = async (req, res) => {
       user.bio = String(bio).trim();
     }
 
+    if (req.body.phoneNumber !== undefined) {
+      user.phoneNumber = String(req.body.phoneNumber).trim();
+    }
+
     if (email !== undefined) {
       const trimmedEmail = String(email).trim().toLowerCase();
       if (!trimmedEmail) return res.status(400).json({ message: 'Email cannot be empty' });
@@ -119,6 +114,16 @@ exports.updateProfileInfo = async (req, res) => {
         user.emailVerificationCode = undefined;
         user.emailVerificationExpires = undefined;
       }
+    }
+
+    if (req.body.isSubscribedToNewsletter !== undefined) {
+      user.isSubscribedToNewsletter = Boolean(req.body.isSubscribedToNewsletter);
+    }
+
+    if (req.body.newsletterPreferences !== undefined) {
+      const { push, email: emailPref } = req.body.newsletterPreferences;
+      if (push !== undefined) user.newsletterPreferences.push = Boolean(push);
+      if (emailPref !== undefined) user.newsletterPreferences.email = Boolean(emailPref);
     }
 
     await user.save();
@@ -233,6 +238,14 @@ exports.changePassword = async (req, res) => {
 
     user.password = newPassword;
     await user.save();
+
+    await createNotification(
+      user,
+      'Password Changed',
+      'Your account password has been successfully updated. If you did not authorize this, please contact support.',
+      'security'
+    );
+
     res.json({ message: 'Password updated successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -275,7 +288,44 @@ exports.resetPassword = async (req, res) => {
     user.resetPasswordExpires = undefined;
     await user.save();
 
+    await createNotification(
+      user,
+      'Password Reset Successful',
+      'Your account password has been successfully reset using a recovery code.',
+      'security'
+    );
+
     res.json({ message: 'Password reset successful. You can now login.' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.logoutUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (user) {
+      user.fcmToken = null;
+      await user.save();
+    }
+    res.json({ message: 'Logged out successfully, FCM token cleared' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.submitFeedback = async (req, res) => {
+  try {
+    const { rating, comment } = req.body;
+    if (!rating) return res.status(400).json({ message: "Rating is required" });
+
+    await Feedback.create({
+      userId: req.user._id,
+      rating,
+      comment
+    });
+
+    res.status(201).json({ message: "Feedback submitted successfully. Thank you!" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

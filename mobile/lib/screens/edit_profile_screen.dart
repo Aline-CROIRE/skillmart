@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 class EditProfileScreen extends StatefulWidget {
   final String initialName;
   final String initialEmail;
+  final String initialPhoneNumber;
   final String initialBio;
   final bool emailVerified;
 
@@ -13,6 +14,7 @@ class EditProfileScreen extends StatefulWidget {
     super.key,
     required this.initialName,
     required this.initialEmail,
+    required this.initialPhoneNumber,
     required this.initialBio,
     required this.emailVerified,
   });
@@ -26,6 +28,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _api = ApiService();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _emailCtrl;
+  late final TextEditingController _phoneCtrl;
   late final TextEditingController _bioCtrl;
   final _codeCtrl = TextEditingController();
 
@@ -40,6 +43,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.initialName);
     _emailCtrl = TextEditingController(text: widget.initialEmail);
+    _phoneCtrl = TextEditingController(text: widget.initialPhoneNumber);
     _bioCtrl = TextEditingController(text: widget.initialBio);
     _emailVerified = widget.emailVerified;
   }
@@ -48,6 +52,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     _bioCtrl.dispose();
     _codeCtrl.dispose();
     super.dispose();
@@ -74,12 +79,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() => _saving = true);
     try {
       final token = await _token();
-      final updated = await _api.updateProfileInfo(
-        token,
-        name: _nameCtrl.text.trim(),
-        email: _emailCtrl.text.trim(),
-        bio: _bioCtrl.text.trim(),
-      );
+      final updated = await _api.updateProfileInfo({
+        'name': _nameCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
+        'phoneNumber': _phoneCtrl.text.trim(),
+        'bio': _bioCtrl.text.trim(),
+      }, token);
 
       if (!mounted) return;
       final emailChanged = _emailCtrl.text.trim().toLowerCase() !=
@@ -189,6 +194,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _phoneCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Phone Number',
+                prefixIcon: Icon(Icons.phone_outlined),
+                hintText: 'e.g., +250 788 000 000',
+              ),
+              keyboardType: TextInputType.phone,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Phone number is required for verification' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(

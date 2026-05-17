@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
+  phoneNumber: { type: String },
   password: { type: String, required: true },
   role: { 
     type: String, 
@@ -25,7 +26,12 @@ const userSchema = new mongoose.Schema({
   nationalIdUrl: { type: String },
   verificationSelfieUrl: { type: String },
   purchasedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
-  bookmarkedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]
+  bookmarkedProjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
+  isSubscribedToNewsletter: { type: Boolean, default: false, required: true },
+  newsletterPreferences: {
+    push: { type: Boolean, default: false, required: true },
+    email: { type: Boolean, default: false, required: true }
+  },
 }, { timestamps: true });
 
 userSchema.pre('save', async function(next) {

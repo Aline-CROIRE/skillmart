@@ -10,6 +10,7 @@ import 'auth_screen.dart';
 import 'transaction_history_screen.dart';
 import 'edit_profile_screen.dart';
 import 'team_management_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,6 +22,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _api = ApiService();
   String _name = "User";
   String _email = "";
+  String _phone = "";
   String _bio = "";
   String _avatarUrl = "";
   bool _emailVerified = false;
@@ -32,6 +34,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   bool _isUploading = false;
   File? _localAvatar;
+
+  // Newsletter Preferences
+  bool _isSubscribed = false;
+  bool _pushPref = false;
+  bool _emailPref = false;
 
   @override
   void initState() { super.initState(); _load(); }
@@ -45,6 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _name = profile['name'] ?? "Member";
           _email = profile['email'] ?? "";
+          _phone = profile['phoneNumber'] ?? "";
           _bio = profile['bio'] ?? "";
           _avatarUrl = profile['avatar'] ?? "";
           _emailVerified = profile['emailVerified'] == true;
@@ -53,6 +61,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _idUrl = profile['nationalIdUrl'] ?? "";
           _selfieUrl = profile['verificationSelfieUrl'] ?? "";
           _balance = profile['walletBalance'] ?? 0;
+          
+          _isSubscribed = profile['isSubscribedToNewsletter'] ?? false;
+          final prefsObj = profile['newsletterPreferences'] ?? {};
+          _pushPref = prefsObj['push'] ?? false;
+          _emailPref = prefsObj['email'] ?? false;
+          
           _isLoading = false;
         });
       }
@@ -204,6 +218,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
               
               const SizedBox(height: 25),
+              _sectionHeader("Newsletter Subscription"),
+              _buildNewsletterSettings(colorScheme),
+              
+              const SizedBox(height: 25),
               _sectionHeader("Support"),
               _tile("Help Center", Icons.help_outline, () {}),
               _tile("About SkillMart", Icons.info_outline, () {}),
@@ -221,7 +239,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_localAvatar != null) {
       image = FileImage(_localAvatar!);
     } else if (_avatarUrl.isNotEmpty) {
-      image = NetworkImage(_avatarUrl);
+      image = CachedNetworkImageProvider(_avatarUrl);
     }
 
     return Column(
@@ -395,6 +413,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         builder: (_) => EditProfileScreen(
           initialName: _name,
           initialEmail: _email,
+          initialPhoneNumber: _phone,
           initialBio: _bio,
           emailVerified: _emailVerified,
         ),
@@ -405,6 +424,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _name = updated['name'] ?? _name;
         _email = updated['email'] ?? _email;
+        _phone = updated['phoneNumber'] ?? _phone;
         _bio = updated['bio'] ?? '';
         _emailVerified = updated['emailVerified'] == true;
       });
@@ -462,6 +482,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _handleLogout() async {
     final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
+    if (token.isNotEmpty) {
+      await _api.logout(token);
+    }
     await prefs.clear();
     if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthScreen()));
   }
@@ -514,5 +538,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildNewsletterSettings(ColorScheme colorScheme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile(
+            title: const Text("Subscribe to Newsletter", style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text("Receive market insights and updates", style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withOpacity(0.5))),
+            secondary: Icon(Icons.mark_as_unread_outlined, color: colorScheme.primary),
+            value: _isSubscribed,
+            onChanged: (val) => _updateNewsletterSettings(isSubscribed: val),
+          ),
+          if (_isSubscribed) ...[
+            const Divider(height: 1, indent: 60),
+            CheckboxListTile(
+              title: const Text("Receive via Push Notification", style: TextStyle(fontSize: 14)),
+              secondary: const SizedBox(width: 40), 
+              value: _pushPref,
+              onChanged: (val) => _updateNewsletterSettings(push: val),
+            ),
+            CheckboxListTile(
+              title: const Text("Receive via Email", style: TextStyle(fontSize: 14)),
+              secondary: const SizedBox(width: 40),
+              value: _emailPref,
+              onChanged: (val) => _updateNewsletterSettings(email: val),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateNewsletterSettings({bool? isSubscribed, bool? push, bool? email}) async {
+    setState(() {
+      if (isSubscribed != null) _isSubscribed = isSubscribed;
+      if (push != null) _pushPref = push;
+      if (email != null) _emailPref = email;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
+      final data = <String, dynamic>{};
+      if (isSubscribed != null) data['isSubscribedToNewsletter'] = isSubscribed;
+      if (push != null || email != null) {
+        data['newsletterPreferences'] = {
+          'push': _pushPref,
+          'email': _emailPref,
+        };
+      }
+      await ApiService().updateProfileInfo(data, token);
+    } catch (e) {
+      _load();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to update preferences: $e")));
+    }
   }
 }

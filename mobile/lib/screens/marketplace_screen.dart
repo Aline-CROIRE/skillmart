@@ -5,6 +5,9 @@ import '../models/project_model.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import 'project_details_screen.dart';
+import 'notification_screen.dart';
+
+import '../widgets/notification_bell.dart';
 
 class MarketplaceScreen extends StatefulWidget {
   const MarketplaceScreen({super.key});
@@ -61,6 +64,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SliverAppBar(
       expandedHeight: 120, pinned: true, elevation: 0,
+      actions: [
+        NotificationBell(color: isDark ? Colors.white : Colors.black),
+        const SizedBox(width: 10),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         title: Text("Explore Excellence", style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
         background: Container(decoration: BoxDecoration(gradient: isDark ? SkillMartTheme.darkGradient : SkillMartTheme.lightBackgroundGradient)),
