@@ -348,3 +348,34 @@ exports.testEmail = async (req, res) => {
     res.status(500).json({ message: "Failed to send test email.", error: error.message });
   }
 };
+
+exports.testNotification = async (req, res) => {
+  try {
+    const { sendPushNotification } = require('../services/notificationService');
+    const emailTo = req.query.email || 'gyitgaetan90@gmail.com';
+    const explicitToken = req.query.token;
+    
+    let fcmTokenToUse = explicitToken;
+
+    // If no explicit token is provided in the URL, try to find it in the database
+    if (!fcmTokenToUse) {
+      const User = require('../models/User');
+      const user = await User.findOne({ email: emailTo });
+      
+      if (!user || !user.fcmToken) {
+          return res.status(404).json({ message: `No FCM token found for user ${emailTo}. Provide a token manually using ?token=YOUR_TOKEN` });
+      }
+      fcmTokenToUse = user.fcmToken;
+    }
+    
+    await sendPushNotification(
+      fcmTokenToUse,
+      'Firebase Admin Connected! 🚀',
+      'If you are reading this on your phone, your backend push notification configuration is working perfectly on Render!'
+    );
+    
+    res.status(200).json({ message: `Test push notification successfully sent to the device!` });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to send test notification.", error: error.message });
+  }
+};

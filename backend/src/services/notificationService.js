@@ -1,15 +1,25 @@
 const admin = require('firebase-admin');
 
 // IMPORTANT: The user must place their serviceAccountKey.json in the src/config directory
-// or set the GOOGLE_APPLICATION_CREDENTIALS environment variable.
+// or set the FIREBASE_SERVICE_ACCOUNT_JSON environment variable.
 try {
-  const serviceAccount = require('../config/firebase-service-account.json');
+  let serviceAccount;
+  
+  // 1. First, try to load from Environment Variable (For Render/Production)
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } 
+  // 2. Fallback to local file (For Local Development)
+  else {
+    serviceAccount = require('../config/firebase-service-account.json');
+  }
+
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
   });
   console.log('Firebase Admin Initialized');
 } catch (error) {
-  console.warn('Firebase Admin could not be initialized. Service account key might be missing.');
+  console.warn('Firebase Admin could not be initialized. Service account key might be missing or invalid JSON in env var.', error.message);
 }
 
 const Notification = require('../models/Notification');

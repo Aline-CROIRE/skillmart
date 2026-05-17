@@ -17,6 +17,7 @@ const {
   logoutUser,
   submitFeedback,
   testEmail,
+  testNotification,
 } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 const { cloudinaryUpload } = require('../config/cloudinary');
@@ -90,5 +91,8 @@ router.post('/feedback', protect, submitFeedback);
 
 // Temporary endpoint to test email configuration
 router.get('/test-email', testEmail);
+
+// Temporary endpoint to test push notification configuration
+router.get('/test-notification', testNotification);
 
 module.exports = router;
