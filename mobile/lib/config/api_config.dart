@@ -11,9 +11,7 @@ class ApiConfig {
     const fromEnv = String.fromEnvironment('API_URL');
     if (fromEnv.isNotEmpty) return fromEnv;
     
-    // For testing: use local API in debug mode to test email codes
-    if (kDebugMode) return defaultDevLanUrl;
-    
+    // Switch to production URL to test live services
     return productionUrl;
   }
 }
