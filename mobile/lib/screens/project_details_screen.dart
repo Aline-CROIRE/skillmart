@@ -178,6 +178,22 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
             Text(widget.project.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             
+            if (widget.project.status == 'sold') ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 15),
+                decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.red.withOpacity(0.3))),
+                child: Row(
+                  children: [
+                    const Icon(Icons.handshake, color: Colors.red),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text("CLOSED / SOLD", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, letterSpacing: 1.2))),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 15),
+            ],
+            
             // Analytics Awaiting Box
             if (!isApproved && !isMyProject) ...[
               Container(
@@ -219,6 +235,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
                 Text("Shareholder Details", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: colorScheme.onSurface)),
                 const SizedBox(height: 10),
                 _buildInfoRow("Max Shareholders", "${widget.project.maxShareholders}", Icons.groups, colorScheme),
+                _buildInfoRow("Current Secured Investors", "${widget.project.currentInvestors}", Icons.group_add, colorScheme),
                 _buildInfoRow("Total Shares Available", "${widget.project.totalSharesAvailable}%", Icons.pie_chart, colorScheme),
                 _buildInfoRow("Minimum Share", "${widget.project.minShare}%", Icons.percent, colorScheme),
                 _buildInfoRow("Share Unit Value", "RWF ${widget.project.shareValue}", Icons.money, colorScheme),
@@ -340,15 +357,60 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
     if (isStaff) {
       return _footerContainer(
         colorScheme,
-        child: SizedBox(
-          width: double.infinity,
-          height: 55,
-          child: ElevatedButton.icon(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AnalystAuditScreen(project: widget.project))),
-            icon: const Icon(Icons.fact_check, color: Colors.white),
-            label: const Text("AUDIT PROJECT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AnalystAuditScreen(project: widget.project))),
+                icon: const Icon(Icons.fact_check, color: Colors.white),
+                label: const Text("AUDIT PROJECT", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+              ),
+            ),
+            if (_userRole == 'Admin' && widget.project.status != 'sold') ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    bool confirm = await showDialog(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: const Text("Mark as Closed/Sold?"),
+                        content: const Text("This indicates that the project has successfully secured its required funding or was bought out of the system."),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text("CANCEL")),
+                          ElevatedButton(onPressed: () => Navigator.pop(c, true), style: ElevatedButton.styleFrom(backgroundColor: Colors.red), child: const Text("MARK AS SOLD")),
+                        ],
+                      )
+                    ) ?? false;
+                    
+                    if (confirm) {
+                      setState(() => _isProcessing = true);
+                      final prefs = await SharedPreferences.getInstance();
+                      final success = await ApiService().updateProject(widget.project.id, {'status': 'sold'}, prefs.getString('token')!);
+                      if (mounted) {
+                        setState(() => _isProcessing = false);
+                        if (success) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Project marked as Closed/Sold!")));
+                          Navigator.pop(context, true);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to update status.")));
+                        }
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.sell, color: Colors.red),
+                  label: const Text("MARK AS CLOSED/SOLD", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.red), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                ),
+              ),
+            ]
+          ],
         ),
       );
     }

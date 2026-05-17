@@ -29,6 +29,7 @@ const projectSchema = new mongoose.Schema({
   // Shareholder seeking details
   isShareholderSeeking: { type: Boolean, default: false },
   maxShareholders: { type: Number },
+  currentInvestors: { type: Number, default: 0 },
   totalSharesAvailable: { type: Number },
   minShare: { type: Number },
   shareValue: { type: Number },
@@ -36,7 +37,7 @@ const projectSchema = new mongoose.Schema({
   // Review Pipeline
   status: { 
     type: String, 
-    enum: ['pending', 'under_review', 'pending_approval', 'approved', 'rejected', 'needs_changes', 'resubmitted'], 
+    enum: ['pending', 'under_review', 'pending_approval', 'approved', 'rejected', 'needs_changes', 'resubmitted', 'sold'], 
     default: 'pending' 
   },
   analystId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

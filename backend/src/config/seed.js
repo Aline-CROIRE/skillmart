@@ -29,7 +29,7 @@ const seedAdmin = async () => {
     // 2. Seed System Logo
     const logoConfig = await SystemConfig.findOne({ key: 'system_logo_url' });
     if (!logoConfig) {
-      const logoPath = path.resolve(__dirname, '../../../mobile/assets/backgrounded logo.png');
+      const logoPath = path.resolve(__dirname, '../assets/system_logo.png');
       
       if (fs.existsSync(logoPath)) {
         console.log('📤 Uploading system logo to Cloudinary...');

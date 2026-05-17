@@ -27,6 +27,7 @@ class Project {
   final String pitchVideoUrl;
   final bool isShareholderSeeking;
   final int maxShareholders;
+  final int currentInvestors;
   final int totalSharesAvailable;
   final int minShare;
   final int shareValue;
@@ -63,6 +64,7 @@ class Project {
     this.analyticsAccessRequests = const [],
     this.isShareholderSeeking = false,
     this.maxShareholders = 0,
+    this.currentInvestors = 0,
     this.totalSharesAvailable = 0,
     this.minShare = 0,
     this.shareValue = 0,
@@ -110,6 +112,7 @@ class Project {
       analyticsAccessRequests: json['analyticsAccessRequests'] ?? [],
       isShareholderSeeking: json['isShareholderSeeking'] ?? false,
       maxShareholders: json['maxShareholders'] ?? 0,
+      currentInvestors: json['currentInvestors'] ?? 0,
       totalSharesAvailable: json['totalSharesAvailable'] ?? 0,
       minShare: json['minShare'] ?? 0,
       shareValue: json['shareValue'] ?? 0,

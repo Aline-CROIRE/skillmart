@@ -43,6 +43,7 @@ class _UploadScreenState extends State<UploadScreen> {
 
   // Shareholders
   late TextEditingController _maxShareholders;
+  late TextEditingController _currentInvestors;
   late TextEditingController _totalShares;
   late TextEditingController _minShare;
   late TextEditingController _shareValue;
@@ -65,10 +66,11 @@ class _UploadScreenState extends State<UploadScreen> {
     if (_projectType == "Investment Seeking") _projectType = "Shareholder Seeking"; // Compatibility
 
     _maxShareholders = TextEditingController(text: widget.existingProject?.maxShareholders.toString() ?? "0");
+    _currentInvestors = TextEditingController(text: widget.existingProject?.currentInvestors.toString() ?? "0");
     _totalShares = TextEditingController(text: widget.existingProject?.totalSharesAvailable.toString() ?? "0");
     _minShare = TextEditingController(text: widget.existingProject?.minShare.toString() ?? "0");
     _shareValue = TextEditingController(text: widget.existingProject?.shareValue.toString() ?? "0");
-    _rdbReg = TextEditingController();
+    _rdbReg = TextEditingController(text: widget.existingProject?.rdbRegistrationNumber ?? "");
     _fetchProfile();
   }
 
@@ -190,6 +192,7 @@ class _UploadScreenState extends State<UploadScreen> {
       'pitchVideoUrl': videoUrl,
       'isShareholderSeeking': _projectType == "Shareholder Seeking",
       'maxShareholders': int.tryParse(_maxShareholders.text) ?? 0,
+      'currentInvestors': int.tryParse(_currentInvestors.text) ?? 0,
       'totalSharesAvailable': int.tryParse(_totalShares.text) ?? 0,
       'minShare': int.tryParse(_minShare.text) ?? 0,
       'shareValue': int.tryParse(_shareValue.text) ?? 0,
@@ -362,6 +365,7 @@ class _UploadScreenState extends State<UploadScreen> {
         const SizedBox(height: 25),
         _input("Total Shares on Market (%)", _totalShares, Icons.pie_chart, context, isNum: true),
         _input("Maximum Number of Shareholders", _maxShareholders, Icons.groups, context, isNum: true),
+        _input("Current Secured Investors", _currentInvestors, Icons.group_add, context, isNum: true),
         _input("Minimum Share per Holder (%)", _minShare, Icons.percent, context, isNum: true),
         _input("Share Unit Value (RWF)", _shareValue, Icons.money, context, isNum: true),
       ].animate(interval: 50.ms).fadeIn(duration: 300.ms).slideX(begin: 0.1),

@@ -12,6 +12,11 @@ exports.createProject = async (req, res) => {
       return res.status(400).json({ message: "Invalid user session." });
     }
 
+    const existingProject = await Project.findOne({ sellerId, title: req.body.title });
+    if (existingProject) {
+      return res.status(400).json({ message: "You have already uploaded a project with this title." });
+    }
+
     const project = await Project.create({
       ...req.body,
       status: 'pending'
