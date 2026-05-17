@@ -330,3 +330,21 @@ exports.submitFeedback = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.testEmail = async (req, res) => {
+  try {
+    const { sendMail } = require('../services/emailService');
+    const emailTo = req.query.email || 'skillmart13@gmail.com';
+    
+    await sendMail(
+      emailTo,
+      'SkillMart Backend Test Email',
+      'If you are reading this, your backend email configuration is working perfectly!',
+      '<h3>Success!</h3><p>Your backend email configuration is working perfectly.</p>'
+    );
+    
+    res.status(200).json({ message: `Test email successfully sent to ${emailTo}!` });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to send test email.", error: error.message });
+  }
+};

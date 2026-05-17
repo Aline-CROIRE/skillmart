@@ -16,6 +16,7 @@ const {
   resetPassword,
   logoutUser,
   submitFeedback,
+  testEmail,
 } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 const { cloudinaryUpload } = require('../config/cloudinary');
@@ -86,5 +87,8 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post('/logout', protect, logoutUser);
 router.post('/feedback', protect, submitFeedback);
+
+// Temporary endpoint to test email configuration
+router.get('/test-email', testEmail);
 
 module.exports = router;
