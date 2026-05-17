@@ -107,5 +107,3 @@ SkillMart is a robust, full-stack hybrid application that allows creators to pit
 
 ## 🤝 Contributing
 Designed and developed with a focus on modern aesthetics, dynamic micro-animations, and robust data integrity. 
-
-*(This README was automatically generated to reflect the current architectural state of SkillMart.)*
