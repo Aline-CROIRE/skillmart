@@ -14,7 +14,7 @@ const resendKey = process.env.RESEND_API_KEY;
 
 let transporter = null;
 if (gmailUser && gmailPass) {
-  const smtpPort = Number(process.env.SMTP_PORT || 465);
+  const smtpPort = Number(process.env.SMTP_PORT || 587);
   const isSecure = smtpPort === 465;
 
   transporter = nodemailer.createTransport({
@@ -25,10 +25,13 @@ if (gmailUser && gmailPass) {
       user: gmailUser,
       pass: gmailPass,
     },
+    tls: {
+      rejectUnauthorized: false, // Prevents certificate handshake errors on cloud platforms like Render
+    },
     family: 4, // Force IPv4 to prevent ENETUNREACH on cloud environments (like Render) that lack IPv6 routing
-    connectionTimeout: 8000, // Prevents infinite loading if SMTP ports are blocked by host
-    socketTimeout: 8000,
-    greetingTimeout: 8000,
+    connectionTimeout: 10000, // Prevents infinite loading if SMTP ports are blocked by host
+    socketTimeout: 10000,
+    greetingTimeout: 10000,
   });
 }
 
@@ -107,7 +110,7 @@ exports.getLogoUrl = getLogoUrl;
 exports.sendMail = sendMail;
 
 async function sendMail(to, subject, text, html = null) {
-  // Bypassed Resend to always use secure Gmail SMTP on port 465
+  // Bypassed Resend to always use secure Gmail SMTP on port 587 (matching Java configuration)
   /*
   if (process.env.RESEND_API_KEY) {
     return sendViaResend(to, subject, text, html);
