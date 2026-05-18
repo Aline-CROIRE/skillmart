@@ -33,7 +33,7 @@ class _AnalystQueueScreenState extends State<AnalystQueueScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token') ?? '';
-      final data = await _api.getAdminQueue(token);
+      final data = await _api.getAnalystQueue(token);
       if (mounted) {
         setState(() {
           _queue = data;

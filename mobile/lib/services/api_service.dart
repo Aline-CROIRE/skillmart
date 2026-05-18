@@ -179,11 +179,29 @@ class ApiService {
     } catch (e) { return []; }
   }
 
-  Future<List<Project>> getAdminQueue(String token) async {
+  Future<List<Project>> getAnalystQueue(String token) async {
     try {
       final res = await http.get(Uri.parse('$baseUrl/analyst/queue'), headers: _headers(token));
       return res.statusCode == 200 ? (jsonDecode(res.body) as List).map((e) => Project.fromJson(e)).toList() : [];
     } catch (e) { return []; }
+  }
+
+  Future<List<Project>> getAdminQueue(String token) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/admin/queue'), headers: _headers(token));
+      return res.statusCode == 200 ? (jsonDecode(res.body) as List).map((e) => Project.fromJson(e)).toList() : [];
+    } catch (e) { return []; }
+  }
+
+  Future<bool> submitAdminDecision(String id, String status, String token) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/admin/decision/$id'),
+        headers: _headers(token),
+        body: jsonEncode({'status': status}),
+      );
+      return res.statusCode == 200;
+    } catch (e) { return false; }
   }
 
   Future<bool> submitAnalystDecision(String id, String status, String token, {String reviewNote = "", int? price, String? analyticsPath}) async {

@@ -11,7 +11,7 @@ class AdminAuditScreen extends StatelessWidget {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token') ?? '';
     
-    bool success = await ApiService().submitAnalystDecision(project.id, status, token);
+    bool success = await ApiService().submitAdminDecision(project.id, status, token);
     
     if (context.mounted && success) {
       Navigator.pop(context);

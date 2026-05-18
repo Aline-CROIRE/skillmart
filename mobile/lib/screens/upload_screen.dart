@@ -95,6 +95,38 @@ class _UploadScreenState extends State<UploadScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please select a category")));
       return;
     }
+
+    // Validate required documents based on project maturity
+    final existing = widget.existingProject;
+    if (_mainFile == null && (existing?.fileUrl == null || existing!.fileUrl.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Main project file is required"), backgroundColor: Colors.red));
+      return;
+    }
+    if (_proposalDoc == null && (existing?.proposalUrl == null || existing!.proposalUrl.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Detailed proposal document is required"), backgroundColor: Colors.red));
+      return;
+    }
+    if (_projectType != 'Business Idea') {
+      if (_rdbProof == null && (existing?.rdbProofUrl == null || existing!.rdbProofUrl.isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("RDB Certificate is required for this project type"), backgroundColor: Colors.red));
+        return;
+      }
+      if (_incomeStmt == null && (existing?.incomeStatementUrl == null || existing!.incomeStatementUrl.isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Income Statement is required for this project type"), backgroundColor: Colors.red));
+        return;
+      }
+    }
+    if (_projectType == 'Operational') {
+      if (_taxHistory == null && (existing?.rraTaxHistoryUrl == null || existing!.rraTaxHistoryUrl.isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tax History is required for Operational projects"), backgroundColor: Colors.red));
+        return;
+      }
+      if (_taxClearance == null && (existing?.rraClearanceUrl == null || existing!.rraClearanceUrl.isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tax Clearance is required for Operational projects"), backgroundColor: Colors.red));
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token')!;
@@ -326,6 +358,9 @@ class _UploadScreenState extends State<UploadScreen> {
   }
 
   Widget _stepVerification(BuildContext context, ColorScheme colorScheme) {
+    final isShareholderOrOp = _projectType == 'Shareholder Seeking' || _projectType == 'Operational';
+    final isOperational = _projectType == 'Operational';
+
     return ListView(
       key: const ValueKey(2),
       padding: const EdgeInsets.all(25),
@@ -338,16 +373,44 @@ class _UploadScreenState extends State<UploadScreen> {
           });
         }),
         const SizedBox(height: 20),
-        _sectionTitle("Business & Verification Docs"),
-        if (_projectType == "Shareholder Seeking") 
-          _input("RDB Registration Number", _rdbReg, Icons.business, context),
-        
-        _filePicker("Detailed Proposal (PDF)", _proposalDoc, (f) => setState(() => _proposalDoc = f), allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.proposalUrl),
-        _filePicker("RDB Certificate (PDF/Image)", _rdbProof, (f) => setState(() => _rdbProof = f), existingUrl: widget.existingProject?.rdbProofUrl),
-        _filePicker("Income Statement (Optional)", _incomeStmt, (f) => setState(() => _incomeStmt = f), allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.incomeStatementUrl),
-        _filePicker("Tax History (Optional)", _taxHistory, (f) => setState(() => _taxHistory = f), allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.rraTaxHistoryUrl),
-        _filePicker("Tax Clearance (Optional)", _taxClearance, (f) => setState(() => _taxClearance = f), allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.rraClearanceUrl),
-        _filePicker("Pitch Video (Optional MP4)", _pitchVideo, (f) => setState(() => _pitchVideo = f), allowedExtensions: ['mp4', 'mov', 'avi'], existingUrl: widget.existingProject?.pitchVideoUrl),
+
+        // Required for ALL
+        _sectionTitle("Required Documents"),
+        _filePicker("Detailed Proposal (PDF)", _proposalDoc, (f) => setState(() => _proposalDoc = f),
+            allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.proposalUrl, isRequired: true),
+
+        // Required for Shareholder Seeking & Operational
+        if (isShareholderOrOp) ...[
+          if (_projectType == "Shareholder Seeking")
+            _input("RDB Registration Number", _rdbReg, Icons.business, context),
+          _filePicker("RDB Certificate (PDF/Image)", _rdbProof, (f) => setState(() => _rdbProof = f),
+              existingUrl: widget.existingProject?.rdbProofUrl, isRequired: true),
+          _filePicker("Income Statement (PDF)", _incomeStmt, (f) => setState(() => _incomeStmt = f),
+              allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.incomeStatementUrl, isRequired: true),
+        ],
+
+        // Required ONLY for Operational
+        if (isOperational) ...[
+          _filePicker("Tax History (PDF)", _taxHistory, (f) => setState(() => _taxHistory = f),
+              allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.rraTaxHistoryUrl, isRequired: true),
+          _filePicker("Tax Clearance (PDF)", _taxClearance, (f) => setState(() => _taxClearance = f),
+              allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.rraClearanceUrl, isRequired: true),
+        ],
+
+        // Optional for ALL
+        const SizedBox(height: 10),
+        _sectionTitle("Optional Documents"),
+
+        // Tax docs optional for Shareholder Seeking
+        if (_projectType == 'Shareholder Seeking') ...[
+          _filePicker("Tax History (Optional)", _taxHistory, (f) => setState(() => _taxHistory = f),
+              allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.rraTaxHistoryUrl),
+          _filePicker("Tax Clearance (Optional)", _taxClearance, (f) => setState(() => _taxClearance = f),
+              allowedExtensions: ['pdf'], existingUrl: widget.existingProject?.rraClearanceUrl),
+        ],
+
+        _filePicker("Pitch Video (Optional)", _pitchVideo, (f) => setState(() => _pitchVideo = f),
+            allowedExtensions: ['mp4', 'mov', 'avi'], existingUrl: widget.existingProject?.pitchVideoUrl),
       ].animate(interval: 50.ms).fadeIn(duration: 300.ms).slideX(begin: 0.1),
     );
   }
@@ -442,44 +505,68 @@ class _UploadScreenState extends State<UploadScreen> {
     ),
   );
 
-  Widget _filePicker(String label, PlatformFile? file, Function(PlatformFile) onPicked, {List<String>? allowedExtensions, String? existingUrl}) => Padding(
-    padding: const EdgeInsets.only(bottom: 20),
-    child: InkWell(
-      onTap: () async {
-        final r = await FilePicker.platform.pickFiles(
-          type: allowedExtensions != null ? FileType.custom : FileType.any,
-          allowedExtensions: allowedExtensions,
-        );
-        if (r != null) onPicked(r.files.first);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22), 
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.05), 
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.1))
-        ), 
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.1), shape: BoxShape.circle),
-              child: Icon(Icons.cloud_upload_outlined, color: Theme.of(context).colorScheme.primary, size: 24),
+  Widget _filePicker(String label, PlatformFile? file, Function(PlatformFile) onPicked,
+      {List<String>? allowedExtensions, String? existingUrl, bool isRequired = false}) =>
+    Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: InkWell(
+        onTap: () async {
+          final r = await FilePicker.platform.pickFiles(
+            type: allowedExtensions != null ? FileType.custom : FileType.any,
+            allowedExtensions: allowedExtensions,
+          );
+          if (r != null) onPicked(r.files.first);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(
+              color: isRequired && file == null && existingUrl == null
+                  ? Colors.red.withOpacity(0.4)
+                  : Theme.of(context).colorScheme.primary.withOpacity(0.1),
             ),
-            const SizedBox(width: 15), 
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 12)),
-                  Text(file?.name ?? (existingUrl != null ? "Existing file saved" : "No file selected"), style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 14)),
-                ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.cloud_upload_outlined, color: Theme.of(context).colorScheme.primary, size: 24),
               ),
-            ),
-            if (file != null || existingUrl != null) const Icon(Icons.check_circle, color: Colors.green, size: 20),
-          ]
-        )
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 12)),
+                        if (isRequired) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                            child: const Text("REQUIRED", style: TextStyle(color: Colors.red, fontSize: 9, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ],
+                    ),
+                    Text(
+                      file?.name ?? (existingUrl != null ? "Existing file saved" : "No file selected"),
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              if (file != null || existingUrl != null) const Icon(Icons.check_circle, color: Colors.green, size: 20),
+            ],
+          ),
+        ),
       ),
-    ),
-  );
+    );
 }

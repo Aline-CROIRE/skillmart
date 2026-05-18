@@ -49,7 +49,7 @@ class PushNotificationService {
 
     // 3. Initialize Local Notifications (for foreground alerts)
     final initializationSettings = InitializationSettings(
-      android: const AndroidInitializationSettings('@drawable/ic_stat_logo'),
+      android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
       iOS: const DarwinInitializationSettings(),
     );
     await _localNotifications.initialize(
@@ -87,6 +87,13 @@ class PushNotificationService {
               channelDescription: 'SkillMart Notifications',
               importance: Importance.max,
               priority: Priority.high,
+              icon: '@mipmap/ic_launcher',
+              styleInformation: BigTextStyleInformation(
+                notification.body ?? '',
+                htmlFormatBigText: false,
+                contentTitle: notification.title,
+                summaryText: 'SkillMart',
+              ),
             ),
           ),
         );

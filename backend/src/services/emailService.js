@@ -7,15 +7,20 @@ const resendKey = process.env.RESEND_API_KEY;
 
 let transporter = null;
 if (gmailUser && gmailPass) {
+  const smtpPort = Number(process.env.SMTP_PORT || 465);
+  const isSecure = smtpPort === 465;
+
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: false,
-    requireTLS: true,
+    port: smtpPort,
+    secure: isSecure,
     auth: {
       user: gmailUser,
       pass: gmailPass,
     },
+    connectionTimeout: 8000, // Prevents infinite loading if SMTP ports are blocked by host
+    socketTimeout: 8000,
+    greetingTimeout: 8000,
   });
 }
 
@@ -94,9 +99,12 @@ exports.getLogoUrl = getLogoUrl;
 exports.sendMail = sendMail;
 
 async function sendMail(to, subject, text, html = null) {
+  // Bypassed Resend to always use secure Gmail SMTP on port 465
+  /*
   if (process.env.RESEND_API_KEY) {
     return sendViaResend(to, subject, text, html);
   }
+  */
 
   if (!transporter) {
     throw new Error('Email service not configured (Missing SMTP or Resend credentials)');
