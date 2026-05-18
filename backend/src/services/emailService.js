@@ -28,6 +28,12 @@ if (gmailUser && gmailPass) {
     tls: {
       rejectUnauthorized: false, // Prevents certificate handshake errors on cloud platforms like Render
     },
+    // Custom DNS lookup function that strictly forces IPv4 DNS resolution
+    lookup: (hostname, options, callback) => {
+      dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+        callback(err, address, family);
+      });
+    },
     family: 4, // Force IPv4 to prevent ENETUNREACH on cloud environments (like Render) that lack IPv6 routing
     connectionTimeout: 10000, // Prevents infinite loading if SMTP ports are blocked by host
     socketTimeout: 10000,
