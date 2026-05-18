@@ -356,26 +356,42 @@ exports.testNotification = async (req, res) => {
     const explicitToken = req.query.token;
     
     let fcmTokenToUse = explicitToken;
+    let userFound = null;
 
     // If no explicit token is provided in the URL, try to find it in the database
     if (!fcmTokenToUse) {
       const User = require('../models/User');
-      const user = await User.findOne({ email: emailTo });
+      userFound = await User.findOne({ email: emailTo });
       
-      if (!user || !user.fcmToken) {
-          return res.status(404).json({ message: `No FCM token found for user ${emailTo}. Provide a token manually using ?token=YOUR_TOKEN` });
+      if (!userFound) {
+        return res.status(404).json({ message: `No user found with email: ${emailTo}` });
       }
-      fcmTokenToUse = user.fcmToken;
+
+      if (!userFound.fcmToken) {
+        return res.status(404).json({ 
+          message: `User found but has NO FCM token stored. The app has not sent its token to the backend yet. Please log in on the device first.`,
+          userEmail: userFound.email,
+          fcmToken: null
+        });
+      }
+      fcmTokenToUse = userFound.fcmToken;
     }
+
+    // Show the token being used so we can verify it's the release APK's token
+    const tokenPreview = `${fcmTokenToUse.substring(0, 20)}...${fcmTokenToUse.substring(fcmTokenToUse.length - 10)}`;
     
     await sendPushNotification(
       fcmTokenToUse,
-      'Firebase Admin Connected! 🚀',
-      'If you are reading this on your phone, your backend push notification configuration is working perfectly on Render!'
+      'SkillMart Test 🚀',
+      'If you see this banner, push notifications are working perfectly!'
     );
     
-    res.status(200).json({ message: `Test push notification successfully sent to the device!` });
+    res.status(200).json({ 
+      message: `Notification sent!`,
+      sentToToken: tokenPreview,
+      userEmail: userFound ? userFound.email : 'explicit token used'
+    });
   } catch (error) {
-    res.status(500).json({ message: "Failed to send test notification.", error: error.message });
+    res.status(500).json({ message: "Firebase send failed.", error: error.message });
   }
 };
