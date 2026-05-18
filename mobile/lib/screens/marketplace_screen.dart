@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../config/api_config.dart';
 import '../models/project_model.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
@@ -128,7 +129,7 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
                       height: double.infinity,
                       child: p.thumbnailUrl.isNotEmpty 
                         ? CachedNetworkImage(
-                            imageUrl: p.thumbnailUrl.startsWith('http') ? p.thumbnailUrl : "https://skillmart-api.onrender.com${p.thumbnailUrl}",
+                            imageUrl: p.thumbnailUrl.startsWith('http') ? p.thumbnailUrl : "${ApiConfig.assetsBaseUrl}${p.thumbnailUrl}",
                             fit: BoxFit.cover,
                             placeholder: (context, url) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
                             errorWidget: (context, url, error) => Center(

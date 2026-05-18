@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_windowmanager_plus/flutter_windowmanager_plus.dart';
 import 'analyst_audit_screen.dart';
 import 'file_view_screen.dart';
+import '../config/api_config.dart';
 import '../models/project_model.dart';
 import '../services/api_service.dart';
 
@@ -94,7 +95,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   Future<void> _openFile() async {
     final url = Uri.parse(widget.project.fileUrl.startsWith('http') 
       ? widget.project.fileUrl 
-      : "https://skillmart-api.onrender.com${widget.project.fileUrl}");
+      : "${ApiConfig.assetsBaseUrl}${widget.project.fileUrl}");
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.inAppBrowserView);
     } else {
@@ -297,7 +298,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
         borderRadius: BorderRadius.circular(20),
         child: widget.project.thumbnailUrl.isNotEmpty
           ? CachedNetworkImage(
-              imageUrl: widget.project.thumbnailUrl.startsWith('http') ? widget.project.thumbnailUrl : "https://skillmart-api.onrender.com${widget.project.thumbnailUrl}",
+              imageUrl: widget.project.thumbnailUrl.startsWith('http') ? widget.project.thumbnailUrl : "${ApiConfig.assetsBaseUrl}${widget.project.thumbnailUrl}",
               fit: BoxFit.cover,
               placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
               errorWidget: (context, url, error) => Center(child: Icon(Icons.broken_image_outlined, color: colorScheme.primary)),
@@ -325,7 +326,7 @@ class _ProjectDetailsScreenState extends State<ProjectDetailsScreen> {
   Widget _buildFileRow(String label, String url, IconData icon, ColorScheme colorScheme) {
     return InkWell(
       onTap: () async {
-        final uri = Uri.parse(url.startsWith('http') ? url : "https://skillmart-api.onrender.com$url");
+        final uri = Uri.parse(url.startsWith('http') ? url : "${ApiConfig.assetsBaseUrl}$url");
         if (await canLaunchUrl(uri)) {
           await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
         } else {

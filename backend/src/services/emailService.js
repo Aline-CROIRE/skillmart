@@ -1,69 +1,78 @@
-const nodemailer = require('nodemailer');
-const dns = require('dns');
 const SystemConfig = require('../models/SystemConfig');
+const nodemailer = require('nodemailer');
 
-// Force Node.js to prefer IPv4 over IPv6 globally
-// This prevents ENETUNREACH errors on cloud hosting (like Render) which typically lack IPv6 outbound routing
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder('ipv4first');
-}
-
+// Gmail SMTP Config
 const gmailUser = process.env.GMAIL_USER;
-const gmailPass = process.env.GMAIL_APP_PASSWORD;
+const gmailPassword = process.env.GMAIL_APP_PASSWORD;
+
+// Mailgun Config
+const mailgunKey = process.env.MAILGUN_API_KEY;
+const mailgunDomain = process.env.MAILGUN_DOMAIN;
+const mailgunFrom = process.env.MAILGUN_FROM || `SkillMart <mailgun@${mailgunDomain}>`;
+const mailgunUrl = process.env.MAILGUN_API_URL || 'https://api.mailgun.net/v3';
+
+// Resend Config
 const resendKey = process.env.RESEND_API_KEY;
+const resendFrom = process.env.RESEND_FROM || 'SkillMart <onboarding@resend.dev>';
 
-// Pre-resolve smtp.gmail.com to IPv4 A-records at startup to completely bypass OS-level getaddrinfo IPv6 bugs
-let gmailSmtpIp = '74.125.193.108'; // Solid default Gmail SMTP IPv4 address
-dns.resolve4('smtp.gmail.com', (err, addresses) => {
-  if (!err && addresses && addresses.length > 0) {
-    gmailSmtpIp = addresses[0];
-    console.log(`[DNS] Pre-resolved smtp.gmail.com strictly to IPv4 A-record: ${gmailSmtpIp}`);
-  } else {
-    console.error(`[DNS] Failed to resolve4 smtp.gmail.com, using fallback ${gmailSmtpIp}:`, err);
+async function sendViaMailgun(to, subject, text, html = null) {
+  if (!mailgunKey || !mailgunDomain) {
+    throw new Error('Mailgun is not configured (Missing MAILGUN_API_KEY or MAILGUN_DOMAIN)');
   }
-});
 
-let transporter = null;
-if (gmailUser && gmailPass) {
-  const smtpPort = Number(process.env.SMTP_PORT || 587);
-  const isSecure = smtpPort === 465;
+  // Create Basic Authentication token: "Basic " + base64("api:API_KEY")
+  const auth = Buffer.from(`api:${mailgunKey}`).toString('base64');
+  
+  const params = new URLSearchParams();
+  params.append('from', mailgunFrom);
+  params.append('to', to);
+  params.append('subject', subject);
+  params.append('text', text);
+  if (html) {
+    params.append('html', html);
+  }
 
-  transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || gmailSmtpIp,
-    port: smtpPort,
-    secure: isSecure,
-    auth: {
-      user: gmailUser,
-      pass: gmailPass,
-    },
-    tls: {
-      rejectUnauthorized: false, // Prevents certificate handshake errors on cloud platforms like Render
-      servername: 'smtp.gmail.com', // Keeps SNI working with the pre-resolved IPv4 IP address
-    },
-    connectionTimeout: 10000, // Prevents infinite loading if SMTP ports are blocked by host
-    socketTimeout: 10000,
-    greetingTimeout: 10000,
-  });
-}
-
-async function sendViaResend(to, subject, text, html = null) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return null;
-
-  const from = process.env.RESEND_FROM || 'SkillMart <onboarding@resend.dev>';
-  const response = await fetch('https://api.resend.com/emails', {
+  const response = await fetch(`${mailgunUrl}/${mailgunDomain}/messages`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
+      'Authorization': `Basic ${auth}`
     },
-    body: JSON.stringify({ from, to: [to], subject, text, html: html || text }),
+    body: params
   });
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(`Resend error (${response.status}): ${body}`);
+    throw new Error(`Mailgun HTTP error (${response.status}): ${body}`);
   }
+
+  return true;
+}
+
+async function sendViaResend(to, subject, text, html = null) {
+  if (!resendKey) {
+    throw new Error('Resend is not configured (Missing RESEND_API_KEY)');
+  }
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${resendKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ 
+      from: resendFrom, 
+      to: [to], 
+      subject, 
+      text, 
+      html: html || text 
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Resend HTTP error (${response.status}): ${body}`);
+  }
+
   return true;
 }
 
@@ -120,26 +129,69 @@ exports.getHtmlTemplate = getHtmlTemplate;
 exports.getLogoUrl = getLogoUrl;
 exports.sendMail = sendMail;
 
-async function sendMail(to, subject, text, html = null) {
-  // Bypassed Resend to always use secure Gmail SMTP on port 587 (matching Java configuration)
-  /*
-  if (process.env.RESEND_API_KEY) {
-    return sendViaResend(to, subject, text, html);
-  }
-  */
-
-  if (!transporter) {
-    throw new Error('Email service not configured (Missing SMTP or Resend credentials)');
+async function sendViaSMTP(to, subject, text, html = null) {
+  if (!gmailUser || !gmailPassword) {
+    throw new Error('Gmail SMTP is not configured (Missing GMAIL_USER or GMAIL_APP_PASSWORD)');
   }
 
-  await transporter.sendMail({
-    from: `SkillMart <${gmailUser}>`,
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: gmailUser,
+      pass: gmailPassword
+    }
+  });
+
+  const mailOptions = {
+    from: `"SkillMart Support" <${gmailUser}>`,
     to,
     subject,
     text,
-    html: html || text,
-  });
+    html: html || text
+  };
+
+  await transporter.sendMail(mailOptions);
   return true;
+}
+
+async function sendMail(to, subject, text, html = null) {
+  let errors = [];
+
+  // 1. Try Gmail SMTP if configured
+  if (gmailUser && gmailPassword && !gmailPassword.includes('xxxx')) {
+    try {
+      console.log('Attempting delivery via Gmail SMTP...');
+      return await sendViaSMTP(to, subject, text, html);
+    } catch (err) {
+      console.warn('Gmail SMTP failed, trying fallback HTTP drivers...', err.message);
+      errors.push(`SMTP error: ${err.message}`);
+    }
+  }
+
+  // 2. Try Mailgun REST API if configured
+  const isMailgunConfigured = mailgunKey && mailgunDomain && !mailgunKey.includes('xxx') && !mailgunDomain.includes('yourdomain');
+  if (isMailgunConfigured) {
+    try {
+      console.log('Attempting delivery via Mailgun REST API...');
+      return await sendViaMailgun(to, subject, text, html);
+    } catch (err) {
+      console.warn('Mailgun REST failed...', err.message);
+      errors.push(`Mailgun error: ${err.message}`);
+    }
+  }
+  
+  // 3. Try Resend REST API if configured
+  if (resendKey && !resendKey.includes('xxxx')) {
+    try {
+      console.log('Attempting delivery via Resend REST API...');
+      return await sendViaResend(to, subject, text, html);
+    } catch (err) {
+      console.warn('Resend REST failed...', err.message);
+      errors.push(`Resend error: ${err.message}`);
+    }
+  }
+
+  throw new Error(`Email service failed to deliver. Details: ${errors.join(' | ')}`);
 }
 
 exports.sendSubmissionConfirmation = async (userEmail, userName, projectName) => {

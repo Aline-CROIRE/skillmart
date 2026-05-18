@@ -1,5 +1,5 @@
 const dns = require('dns');
-if (dns.setDefaultResultOrder) {
+if (typeof dns.setDefaultResultOrder === 'function') {
   dns.setDefaultResultOrder('ipv4first');
 }
 

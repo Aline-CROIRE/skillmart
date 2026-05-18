@@ -22,9 +22,8 @@ router.get('/send-test', async (req, res) => {
 
 router.get('/debug-env', (req, res) => {
   res.json({
-    hasGmailUser: !!process.env.GMAIL_USER,
-    hasGmailPass: !!process.env.GMAIL_APP_PASSWORD,
-    hasResendKey: !!process.env.RESEND_API_KEY,
+    hasMailgunKey: !!process.env.MAILGUN_API_KEY,
+    hasMailgunDomain: !!process.env.MAILGUN_DOMAIN,
     nodeEnv: process.env.NODE_ENV || 'not set'
   });
 });

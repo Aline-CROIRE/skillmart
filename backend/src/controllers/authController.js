@@ -177,9 +177,9 @@ exports.sendEmailVerification = async (req, res) => {
 
     const result = await sendVerificationEmail(user.email, user.name, code);
     if (!result.ok) {
-      const hint = process.env.RESEND_API_KEY
+      const hint = process.env.MAILGUN_API_KEY
         ? ''
-        : ' Set RESEND_API_KEY on the server for reliable delivery from cloud hosting.';
+        : ' Set MAILGUN_API_KEY on the server for reliable delivery from cloud hosting.';
       return res.status(500).json({
         message: `Failed to send verification email.${hint}`,
         detail: process.env.NODE_ENV === 'production' ? undefined : result.error,

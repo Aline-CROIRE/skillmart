@@ -32,4 +32,4 @@ build/
 backend/src/config/firebase-service-account.json
 mobile/android/app/google-services.json
 mobile/ios/Runner/GoogleService-Info.plist
-/Org-group-project-backend
+
