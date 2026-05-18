@@ -12,12 +12,14 @@ const gmailUser = process.env.GMAIL_USER;
 const gmailPass = process.env.GMAIL_APP_PASSWORD;
 const resendKey = process.env.RESEND_API_KEY;
 
-// Pre-resolve smtp.gmail.com to IPv4 at startup to physically bypass any IPv6 DNS resolution on Render
+// Pre-resolve smtp.gmail.com to IPv4 A-records at startup to completely bypass OS-level getaddrinfo IPv6 bugs
 let gmailSmtpIp = '74.125.193.108'; // Solid default Gmail SMTP IPv4 address
-dns.lookup('smtp.gmail.com', { family: 4 }, (err, address) => {
-  if (!err && address) {
-    gmailSmtpIp = address;
-    console.log(`[DNS] Pre-resolved smtp.gmail.com strictly to IPv4: ${gmailSmtpIp}`);
+dns.resolve4('smtp.gmail.com', (err, addresses) => {
+  if (!err && addresses && addresses.length > 0) {
+    gmailSmtpIp = addresses[0];
+    console.log(`[DNS] Pre-resolved smtp.gmail.com strictly to IPv4 A-record: ${gmailSmtpIp}`);
+  } else {
+    console.error(`[DNS] Failed to resolve4 smtp.gmail.com, using fallback ${gmailSmtpIp}:`, err);
   }
 });
 
