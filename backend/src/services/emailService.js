@@ -12,13 +12,22 @@ const gmailUser = process.env.GMAIL_USER;
 const gmailPass = process.env.GMAIL_APP_PASSWORD;
 const resendKey = process.env.RESEND_API_KEY;
 
+// Pre-resolve smtp.gmail.com to IPv4 at startup to physically bypass any IPv6 DNS resolution on Render
+let gmailSmtpIp = '74.125.193.108'; // Solid default Gmail SMTP IPv4 address
+dns.lookup('smtp.gmail.com', { family: 4 }, (err, address) => {
+  if (!err && address) {
+    gmailSmtpIp = address;
+    console.log(`[DNS] Pre-resolved smtp.gmail.com strictly to IPv4: ${gmailSmtpIp}`);
+  }
+});
+
 let transporter = null;
 if (gmailUser && gmailPass) {
   const smtpPort = Number(process.env.SMTP_PORT || 587);
   const isSecure = smtpPort === 465;
 
   transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    host: process.env.SMTP_HOST || gmailSmtpIp,
     port: smtpPort,
     secure: isSecure,
     auth: {
@@ -27,14 +36,8 @@ if (gmailUser && gmailPass) {
     },
     tls: {
       rejectUnauthorized: false, // Prevents certificate handshake errors on cloud platforms like Render
+      servername: 'smtp.gmail.com', // Keeps SNI working with the pre-resolved IPv4 IP address
     },
-    // Custom DNS lookup function that strictly forces IPv4 DNS resolution
-    lookup: (hostname, options, callback) => {
-      dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-        callback(err, address, family);
-      });
-    },
-    family: 4, // Force IPv4 to prevent ENETUNREACH on cloud environments (like Render) that lack IPv6 routing
     connectionTimeout: 10000, // Prevents infinite loading if SMTP ports are blocked by host
     socketTimeout: 10000,
     greetingTimeout: 10000,
