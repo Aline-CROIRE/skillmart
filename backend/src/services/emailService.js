@@ -1,5 +1,12 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns');
 const SystemConfig = require('../models/SystemConfig');
+
+// Force Node.js to prefer IPv4 over IPv6 globally
+// This prevents ENETUNREACH errors on cloud hosting (like Render) which typically lack IPv6 outbound routing
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 const gmailUser = process.env.GMAIL_USER;
 const gmailPass = process.env.GMAIL_APP_PASSWORD;
