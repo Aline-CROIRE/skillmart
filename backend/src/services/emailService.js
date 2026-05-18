@@ -18,6 +18,7 @@ if (gmailUser && gmailPass) {
       user: gmailUser,
       pass: gmailPass,
     },
+    family: 4, // Force IPv4 to prevent ENETUNREACH on cloud environments (like Render) that lack IPv6 routing
     connectionTimeout: 8000, // Prevents infinite loading if SMTP ports are blocked by host
     socketTimeout: 8000,
     greetingTimeout: 8000,
